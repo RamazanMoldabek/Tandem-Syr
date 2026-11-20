@@ -8,9 +8,11 @@ import {
   HeartHandshake,
   KeyRound,
   LogOut,
+  Menu,
   Mic,
   Sparkles,
   Stethoscope,
+  X,
 } from "lucide-react";
 import {
   completeHomework,
@@ -23,7 +25,6 @@ import { AdaptiveReader } from "./components/AdaptiveReader";
 import { BreathingGame } from "./components/BreathingGame";
 import { LogopedDashboard } from "./components/LogopedDashboard";
 import { SpeechTrainer } from "./components/SpeechTrainer";
-import { UI_TEXT } from "./i18n/translations";
 import type {
   HomeworkAssignment,
   Lang,
@@ -94,50 +95,51 @@ const ROLE_META: {
   rights_kk: string;
   rights_ru: string;
 }[] = [
-  {
-    role: "teacher",
-    short_kk: "Мұғалім",
-    short_ru: "Учитель",
-    title_kk: "Логопед-мұғалім (Админ)",
-    title_ru: "Учитель-логопед (Админ)",
-    username: "teacher",
-    pin: "1111",
-    rights_kk:
-      "Барлық деңгейлер ашық • Диктор дауысын калибрлеу • Оқушыға бейімдеу профилі мен үй тапсырмасын беру",
-    rights_ru:
-      "Все уровни открыты • Калибровка эталона голоса • Назначение профиля адаптации и домашнего задания",
-  },
-  {
-    role: "student",
-    short_kk: "Оқушы",
-    short_ru: "Ученик",
-    title_kk: "Оқушы (Алихан, 2-сынып)",
-    title_ru: "Ученик (Алихан, 2 класс)",
-    username: "student",
-    pin: "2222",
-    rights_kk:
-      "Тек жаттығу мен ойын модульдері • Жұлдыздар арқылы деңгей ашу • Автоматты бейімделген оқу режимі",
-    rights_ru:
-      "Только игровые и учебные модули • Прогрессия по звёздам • Авто-профиль лёгкого чтения",
-  },
-  {
-    role: "parent",
-    short_kk: "Ата-ана",
-    short_ru: "Родитель",
-    title_kk: "Ата-ана (Марат)",
-    title_ru: "Родитель (Марат)",
-    username: "parent",
-    pin: "3333",
-    rights_kk:
-      "Баланың апталық прогресі • Логопедтің үй тапсырмасы мен ұсынысы • Үйде бірге жаттығу және оқу",
-    rights_ru:
-      "Прогресс и аналитика ребёнка • Домашнее задание и заметки логопеда • Совместное чтение дома",
-  },
-];
+    {
+      role: "teacher",
+      short_kk: "Мұғалім",
+      short_ru: "Учитель",
+      title_kk: "Логопед-мұғалім (Админ)",
+      title_ru: "Учитель-логопед (Админ)",
+      username: "teacher",
+      pin: "1111",
+      rights_kk:
+        "Барлық деңгейлер ашық • Диктор дауысын калибрлеу • Оқушыға бейімдеу профилі мен үй тапсырмасын беру",
+      rights_ru:
+        "Все уровни открыты • Калибровка эталона голоса • Назначение профиля адаптации и домашнего задания",
+    },
+    {
+      role: "student",
+      short_kk: "Оқушы",
+      short_ru: "Ученик",
+      title_kk: "Оқушы (Алихан, 2-сынып)",
+      title_ru: "Ученик (Алихан, 2 класс)",
+      username: "student",
+      pin: "2222",
+      rights_kk:
+        "Тек жаттығу мен ойын модульдері • Жұлдыздар арқылы деңгей ашу • Автоматты бейімделген оқу режимі",
+      rights_ru:
+        "Только игровые и учебные модули • Прогрессия по звёздам • Авто-профиль лёгкого чтения",
+    },
+    {
+      role: "parent",
+      short_kk: "Ата-ана",
+      short_ru: "Родитель",
+      title_kk: "Ата-ана (Марат)",
+      title_ru: "Родитель (Марат)",
+      username: "parent",
+      pin: "3333",
+      rights_kk:
+        "Баланың апталық прогресі • Логопедтің үй тапсырмасы мен ұсынысы • Үйде бірге жаттығу және оқу",
+      rights_ru:
+        "Прогресс и аналитика ребёнка • Домашнее задание и заметки логопеда • Совместное чтение дома",
+    },
+  ];
 
 export default function App() {
   const [lang, setLang] = useState<Lang>("kk");
   const [tab, setTab] = useState<TabKey>("trainer");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [logoImgFailed, setLogoImgFailed] = useState<boolean>(false);
 
   // Роль определяется ТОЛЬКО при входе в систему (null = экран авторизации)
@@ -259,7 +261,7 @@ export default function App() {
 
   const handleUpdateStudentProfile = useCallback((nextProfile: ReaderProfileMode) => {
     setAssignedProfile(nextProfile);
-    updateStudentAdaptiveProfile(nextProfile).catch(() => {});
+    updateStudentAdaptiveProfile(nextProfile).catch(() => { });
   }, []);
 
   const handleStartMinimalPairsFromDashboard = (phoneme: TargetPhoneme) => {
@@ -305,22 +307,20 @@ export default function App() {
             <button
               type="button"
               onClick={() => setLang("kk")}
-              className={`rounded-lg px-3 py-1 text-xs font-extrabold transition ${
-                lang === "kk"
+              className={`rounded-lg px-3 py-1 text-xs font-extrabold transition ${lang === "kk"
                   ? "bg-white text-slate-900 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               ҚАЗ
             </button>
             <button
               type="button"
               onClick={() => setLang("ru")}
-              className={`rounded-lg px-3 py-1 text-xs font-extrabold transition ${
-                lang === "ru"
+              className={`rounded-lg px-3 py-1 text-xs font-extrabold transition ${lang === "ru"
                   ? "bg-white text-slate-900 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               РУС
             </button>
@@ -475,46 +475,45 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800">
-      {/* Full-Width 3-Column Grid Navbar: Left = Brand | Center = Role-Based Nav | Right = Account Badge + Logout + Lang */}
+      {/* Full-Width 3-Column Grid Navbar on Desktop; Clean Single-Row + Burger Menu on Mobile */}
       <header className="sticky top-0 z-30 w-full bg-white/95 shadow-[0_2px_16px_rgba(15,23,42,0.04)] backdrop-blur-md">
-        <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 items-center gap-4 px-6 py-3 md:grid-cols-[1fr_auto_1fr] lg:px-10">
+        <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-3 px-4 py-2.5 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4 md:px-6 md:py-3 lg:px-10">
           {/* 1. LEFT EDGE: Logo + Non-Wrapping Brand Name */}
-          <div className="flex items-center justify-self-start">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center md:justify-self-start">
+            <div className="flex items-center gap-2.5 sm:gap-3">
               {!logoImgFailed ? (
                 <img
                   src="/logo.png"
                   alt="Tandem-Syr Logo"
                   onError={() => setLogoImgFailed(true)}
-                  className="h-11 w-auto shrink-0 object-contain"
+                  className="h-9 w-auto shrink-0 object-contain sm:h-11"
                 />
               ) : (
                 <svg
                   viewBox="0 0 36 36"
-                  className="h-10 w-10 shrink-0 rounded-xl shadow-sm"
+                  className="h-9 w-9 shrink-0 rounded-xl shadow-sm sm:h-10 sm:w-10"
                   role="img"
                   aria-label="Tandem-Syr Logo"
                 >
                   <rect width="36" height="36" rx="10" fill="#2563EB" />
                 </svg>
               )}
-              <span className="whitespace-nowrap text-xl font-black tracking-tight text-slate-900">
+              <span className="whitespace-nowrap text-lg font-black tracking-tight text-slate-900 sm:text-xl">
                 Tandem-Syr
               </span>
             </div>
           </div>
 
-          {/* 2. DEAD CENTER: Role-Aware Navigation Pill Bar */}
-          <nav className="justify-self-center">
+          {/* 2. DESKTOP CENTER: Single-Line Navigation Pill Bar */}
+          <nav className="hidden md:block md:justify-self-center">
             <div className="inline-flex flex-nowrap items-center gap-1 rounded-2xl bg-slate-100/90 p-1.5">
               <button
                 type="button"
                 onClick={() => setTab("trainer")}
-                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-xs font-extrabold transition-all ${
-                  tab === "trainer"
+                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-xs font-extrabold transition-all ${tab === "trainer"
                     ? "bg-white text-blue-700 shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 <Mic className="h-4 w-4 shrink-0" />
                 <span>{lang === "kk" ? "Дыбыс жаттығуы" : "Произношение"}</span>
@@ -523,11 +522,10 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setTab("reader")}
-                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-xs font-extrabold transition-all ${
-                  tab === "reader"
+                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-xs font-extrabold transition-all ${tab === "reader"
                     ? "bg-white text-blue-700 shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 <BookOpen className="h-4 w-4 shrink-0" />
                 <span>{lang === "kk" ? "Жеңіл оқу" : "Лёгкое чтение"}</span>
@@ -536,11 +534,10 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setTab("breathing")}
-                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-xs font-extrabold transition-all ${
-                  tab === "breathing"
+                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-xs font-extrabold transition-all ${tab === "breathing"
                     ? "bg-white text-blue-700 shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 <Gamepad2 className="h-4 w-4 shrink-0" />
                 <span>{lang === "kk" ? "Лого-ойындар" : "Лого-игры"}</span>
@@ -550,11 +547,10 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setTab("dashboard")}
-                  className={`inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-xs font-extrabold transition-all ${
-                    tab === "dashboard"
+                  className={`inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-xs font-extrabold transition-all ${tab === "dashboard"
                       ? "bg-white text-blue-700 shadow-sm"
                       : "text-slate-600 hover:text-slate-900"
-                  }`}
+                    }`}
                 >
                   {currentUser.role === "parent" ? (
                     <HeartHandshake className="h-4 w-4 shrink-0" />
@@ -566,15 +562,17 @@ export default function App() {
                       ? lang === "kk"
                         ? "Ата-ана күнделігі"
                         : "Дневник родителя"
-                      : UI_TEXT.tabs.dashboard[lang]}
+                      : lang === "kk"
+                        ? "Логопед кабинеті"
+                        : "Кабинет логопеда"}
                   </span>
                 </button>
               )}
             </div>
           </nav>
 
-          {/* 3. RIGHT EDGE: Current Account Badge + Logout Button + Language */}
-          <div className="flex flex-nowrap items-center gap-2.5 justify-self-end">
+          {/* 3. DESKTOP RIGHT EDGE: Account Badge + Logout + Language */}
+          <div className="hidden flex-nowrap items-center gap-2.5 md:flex md:justify-self-end">
             <div className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-xl bg-slate-100/90 px-3 text-xs font-extrabold text-slate-800">
               {currentUser.role === "teacher" ? (
                 <Stethoscope className="h-3.5 w-3.5 text-sky-600" />
@@ -583,7 +581,7 @@ export default function App() {
               ) : (
                 <HeartHandshake className="h-3.5 w-3.5 text-indigo-600" />
               )}
-              <span>{currentUser.full_name}</span>
+              <span className="hidden lg:inline">{currentUser.full_name}</span>
               <span className="rounded-md bg-white px-1.5 py-0.5 text-[10px] font-extrabold text-slate-500">
                 {lang === "kk" ? activeRoleMeta.short_kk : activeRoleMeta.short_ru}
               </span>
@@ -596,39 +594,178 @@ export default function App() {
               className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 text-xs font-extrabold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
             >
               <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{lang === "kk" ? "Шығу" : "Выйти"}</span>
+              <span>{lang === "kk" ? "Шығу" : "Выйти"}</span>
             </button>
 
             <div className="inline-flex h-9 shrink-0 items-center rounded-xl bg-slate-100/90 p-1">
               <button
                 type="button"
                 onClick={() => setLang("kk")}
-                className={`rounded-lg px-2.5 py-1 text-xs font-extrabold transition ${
-                  lang === "kk"
+                className={`rounded-lg px-2.5 py-1 text-xs font-extrabold transition ${lang === "kk"
                     ? "bg-white text-slate-900 shadow-sm"
                     : "text-slate-500 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 ҚАЗ
               </button>
               <button
                 type="button"
                 onClick={() => setLang("ru")}
-                className={`rounded-lg px-2.5 py-1 text-xs font-extrabold transition ${
-                  lang === "ru"
+                className={`rounded-lg px-2.5 py-1 text-xs font-extrabold transition ${lang === "ru"
                     ? "bg-white text-slate-900 shadow-sm"
                     : "text-slate-500 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 РУС
               </button>
             </div>
           </div>
+
+          {/* MOBILE RIGHT EDGE: Role Pill + Burger Menu Button */}
+          <div className="flex items-center gap-2 md:hidden">
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-slate-100 px-2.5 text-xs font-extrabold text-slate-700">
+              {currentUser.role === "teacher" ? (
+                <Stethoscope className="h-3.5 w-3.5 text-sky-600" />
+              ) : currentUser.role === "student" ? (
+                <GraduationCap className="h-3.5 w-3.5 text-emerald-600" />
+              ) : (
+                <HeartHandshake className="h-3.5 w-3.5 text-indigo-600" />
+              )}
+              {lang === "kk" ? activeRoleMeta.short_kk : activeRoleMeta.short_ru}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-label="Menu"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-2xs transition hover:bg-slate-50"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
+
+        {/* MOBILE BURGER DRAWER */}
+        {mobileMenuOpen && (
+          <div className="border-t border-slate-100 bg-white px-4 py-3 shadow-lg md:hidden">
+            <nav className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setTab("trainer");
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-extrabold transition ${tab === "trainer"
+                    ? "bg-sky-50 text-sky-700 ring-1 ring-sky-200"
+                    : "text-slate-700 hover:bg-slate-50"
+                  }`}
+              >
+                <Mic className="h-4 w-4 shrink-0" />
+                <span>{lang === "kk" ? "Дыбыс жаттығуы" : "Произношение"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTab("reader");
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-extrabold transition ${tab === "reader"
+                    ? "bg-sky-50 text-sky-700 ring-1 ring-sky-200"
+                    : "text-slate-700 hover:bg-slate-50"
+                  }`}
+              >
+                <BookOpen className="h-4 w-4 shrink-0" />
+                <span>{lang === "kk" ? "Жеңіл оқу" : "Лёгкое чтение"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTab("breathing");
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-extrabold transition ${tab === "breathing"
+                    ? "bg-sky-50 text-sky-700 ring-1 ring-sky-200"
+                    : "text-slate-700 hover:bg-slate-50"
+                  }`}
+              >
+                <Gamepad2 className="h-4 w-4 shrink-0" />
+                <span>{lang === "kk" ? "Лого-ойындар" : "Лого-игры"}</span>
+              </button>
+
+              {currentUser.role !== "student" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("dashboard");
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-extrabold transition ${tab === "dashboard"
+                      ? "bg-sky-50 text-sky-700 ring-1 ring-sky-200"
+                      : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                >
+                  {currentUser.role === "parent" ? (
+                    <HeartHandshake className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <Stethoscope className="h-4 w-4 shrink-0" />
+                  )}
+                  <span>
+                    {currentUser.role === "parent"
+                      ? lang === "kk"
+                        ? "Ата-ана күнделігі"
+                        : "Дневник родителя"
+                      : lang === "kk"
+                        ? "Логопед кабинеті"
+                        : "Кабинет логопеда"}
+                  </span>
+                </button>
+              )}
+            </nav>
+
+            <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+              <div className="inline-flex items-center rounded-xl bg-slate-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => setLang("kk")}
+                  className={`rounded-lg px-3 py-1 text-xs font-extrabold transition ${lang === "kk"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-500"
+                    }`}
+                >
+                  ҚАЗ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLang("ru")}
+                  className={`rounded-lg px-3 py-1 text-xs font-extrabold transition ${lang === "ru"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-500"
+                    }`}
+                >
+                  РУС
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleLogout();
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-extrabold text-red-700"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span>{lang === "kk" ? "Аккаунттан шығу" : "Выйти из аккаунта"}</span>
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Active Workspace */}
-      <main className="mx-auto max-w-6xl px-6 py-6 space-y-5">
+      <main className="mx-auto max-w-6xl space-y-4 px-3.5 py-4 sm:space-y-5 sm:px-6 sm:py-6">
         {/* STUDENT VIEW: Friendly Teacher's Homework Banner */}
         {currentUser.role === "student" && latestPendingHw && (
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50/85 px-5 py-3.5 shadow-2xs">

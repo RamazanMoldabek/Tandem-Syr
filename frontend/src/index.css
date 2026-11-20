@@ -3,11 +3,22 @@
 @tailwind utilities;
 
 @layer base {
+  html,
   body {
     font-family: "Nunito", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     background-color: #f8fafc;
     color: #1e293b;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
   }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 @layer components {

@@ -861,31 +861,35 @@ export function AdaptiveReader({
   return (
     <div className="space-y-6">
       {/* Topic Selector, Profile Selector, OCR Photo/PDF Upload & Custom Text Input */}
-      <section className="surface-card p-6">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
+      <section className="surface-card p-4 sm:p-6">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
+          <h2 className="flex items-center gap-2 text-base font-extrabold text-slate-900 sm:text-lg">
             <BookOpen className="h-5 w-5 text-blue-600" />
             {lang === "kk"
               ? "Мәтінді жеңілдетіп оқу"
               : "Адаптивное чтение по карточкам"}
           </h2>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             {/* Child Profile Selector: visible to Teacher (who sets it) & Parent; hidden from Student */}
             {userRole !== "student" ? (
-              <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1">
+              <div className="grid w-full grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:inline-flex sm:w-auto">
                 {PROFILE_MODES.map((pm) => (
                   <button
                     key={pm.id}
                     type="button"
                     onClick={() => handleSelectProfileMode(pm.id)}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-extrabold transition ${
+                    className={`rounded-lg px-2 py-1.5 text-center text-[11px] font-extrabold whitespace-nowrap transition sm:px-3 sm:py-1 sm:text-xs ${
                       profileMode === pm.id
                         ? "bg-sky-600 text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    {lang === "kk" ? pm.label_kk : pm.label_ru}
+                    {pm.id === "adhd"
+                      ? "⚡ СДВГ"
+                      : pm.id === "dyslexia"
+                        ? "🔤 Дислексия"
+                        : "💡 ПДТ (ЗПР)"}
                   </button>
                 ))}
               </div>
@@ -1347,16 +1351,16 @@ export function AdaptiveReader({
 
             {/* ONE LARGE CARD AT A TIME */}
             {currentCard && (
-              <div className="space-y-6">
+              <div className="space-y-5 sm:space-y-6">
                 <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-5xl shadow-sm ring-1 ring-slate-200">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-4xl shadow-sm ring-1 ring-slate-200 sm:h-20 sm:w-20 sm:text-5xl">
                     {currentCard.icon}
                   </div>
                   <div className="flex-1">
                     <p
-                      className={`text-2xl font-extrabold sm:text-3xl ${
+                      className={`text-xl font-extrabold sm:text-3xl ${
                         profileMode === "dyslexia"
-                          ? "leading-[2.1] tracking-[0.07em]"
+                          ? "leading-[2.1] tracking-[0.06em] sm:tracking-[0.07em]"
                           : profileMode === "zpr"
                             ? "leading-loose tracking-wide"
                             : "leading-relaxed tracking-normal"
@@ -1373,7 +1377,7 @@ export function AdaptiveReader({
                   <button
                     type="button"
                     onClick={() => handleSpeakCard(currentCard.text)}
-                    className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm font-extrabold text-white shadow-sm transition hover:bg-emerald-700"
+                    className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-emerald-700 sm:w-auto sm:py-3.5"
                   >
                     <Volume2 className="h-5 w-5" />
                     {lang === "kk"
@@ -1389,7 +1393,7 @@ export function AdaptiveReader({
                 {/* Profile-specific Coach Tip / Meaning Helper */}
                 {currentCard.coach_tip && (
                   <div
-                    className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm font-bold ${
+                    className={`flex flex-col items-stretch justify-between gap-2.5 rounded-2xl border px-4 py-3 text-sm font-bold sm:flex-row sm:items-center sm:gap-3 ${
                       profileMode === "zpr"
                         ? "border-indigo-200 bg-indigo-50/90 text-indigo-950"
                         : profileMode === "dyslexia"
@@ -1397,7 +1401,7 @@ export function AdaptiveReader({
                           : "border-emerald-200 bg-emerald-50/90 text-emerald-950"
                     }`}
                   >
-                    <div>
+                    <div className="min-w-0 leading-relaxed">
                       {profileMode === "zpr" && (
                         <span className="mr-1.5 inline-block rounded-md bg-indigo-600 px-2 py-0.5 text-[11px] font-extrabold uppercase text-white">
                           {lang === "kk" ? "Түсіндірме" : "Смысл"}
@@ -1409,10 +1413,10 @@ export function AdaptiveReader({
                       <button
                         type="button"
                         onClick={() => handleSpeakCard(currentCard.focus_word!)}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-extrabold text-slate-800 shadow-sm hover:bg-slate-50"
+                        className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 shadow-sm hover:bg-slate-50 sm:w-auto sm:py-1.5"
                       >
-                        <Volume2 className="h-3.5 w-3.5 text-sky-600" />
-                        «{currentCard.focus_word}»
+                        <Volume2 className="h-3.5 w-3.5 shrink-0 text-sky-600" />
+                        <span className="truncate">«{currentCard.focus_word}»</span>
                       </button>
                     )}
                   </div>
@@ -1546,18 +1550,18 @@ export function AdaptiveReader({
             )}
 
             {/* Bottom Step Navigation */}
-            <div className="mt-8 flex items-center justify-between border-t border-slate-200/80 pt-4">
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 pt-4 sm:mt-8">
               <button
                 type="button"
                 disabled={stepIndex === 0}
                 onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-extrabold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 sm:px-4 sm:py-2.5 sm:text-sm"
               >
                 <ChevronLeft className="h-4 w-4" />
                 {lang === "kk" ? "Алдыңғы" : "Назад"}
               </button>
 
-              <div className="flex gap-1.5">
+              <div className="hidden gap-1.5 sm:flex">
                 {Array.from({ length: totalSteps }).map((_, idx) => (
                   <button
                     key={idx}

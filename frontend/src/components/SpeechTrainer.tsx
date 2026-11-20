@@ -347,10 +347,10 @@ export function SpeechTrainer({
   const wordEmoji = getIllustrationForWord(activeWord, level, minimalPairsMode);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* 1. COMPACT TOP STEPPER BAR (Phoneme + Level + Word Carousel in one compact card) */}
-      <section className="surface-card px-6 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <section className="surface-card p-4 sm:px-6 sm:py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
           {/* Left: Soft Pastel Phoneme Pills (No solid blue circles!) */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-extrabold uppercase tracking-wider text-slate-400">
