@@ -1,0 +1,46 @@
+# ---------------------------------------------------
+# Единый .gitignore для всего репозитория Tandem-Syr
+# (работает рекурсивно и для stt-service/, и для frontend/)
+# ---------------------------------------------------
+
+# Окружения и зависимости
+venv/
+.venv/
+node_modules/
+
+# Секреты и локальные конфиги (кроме .env.example)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Кэш Python и сборки фронтенда
+__pycache__/
+*.py[cod]
+*$py.class
+dist/
+.vite/
+*.tsbuildinfo
+
+# Локальные базы данных SQLite
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Кэш аудио, TTS и тяжёлые веса/аудиофайлы
+tts_cache/
+reference_audio/
+*.pt
+*.pth
+*.onnx
+*.bin
+*.m4a
+*.mp3
+*.wav
+*.webm
+
+# Системные файлы ОС и IDE
+.DS_Store
+Thumbs.db
+*.log
