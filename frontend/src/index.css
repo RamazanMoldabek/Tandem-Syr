@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: "Nunito", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background-color: #f8fafc;
+    color: #1e293b;
+  }
+}
+
+@layer components {
+  .surface-card {
+    background-color: #ffffff;
+    border-radius: 20px;
+    border: 0;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+  }
+}
+
+@keyframes airflowMove {
+  from {
+    stroke-dashoffset: 36;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes trillTip {
+  0%, 100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  25% {
+    transform: translate(-1.5px, -2.5px) rotate(-2deg);
+  }
+  50% {
+    transform: translate(1px, 1.5px) rotate(1.5deg);
+  }
+  75% {
+    transform: translate(-1px, -2px) rotate(-1.5deg);
+  }
+}
+
+@keyframes vocalPulse {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+}
+
+.animate-airflow {
+  animation: airflowMove 0.9s linear infinite;
+}
+
+.animate-airflow-slow {
+  animation: airflowMove 1.8s linear infinite;
+}
+
+.animate-trill {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: trillTip 0.14s ease-in-out infinite;
+}
+
+.animate-trill-slow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: trillTip 0.28s ease-in-out infinite;
+}
+
+.animate-vocal {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vocalPulse 0.65s ease-in-out infinite;
+}
