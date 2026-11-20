@@ -156,6 +156,106 @@ def init_progress_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                pin_code TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                role TEXT NOT NULL,
+                adaptive_profile TEXT NOT NULL DEFAULT 'dyslexia',
+                grade INTEGER NOT NULL DEFAULT 2,
+                linked_student_name TEXT NOT NULL DEFAULT 'Алихан',
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS homework_assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_name TEXT NOT NULL DEFAULT 'Алихан',
+                teacher_name TEXT NOT NULL,
+                target_phoneme TEXT NOT NULL,
+                target_level INTEGER NOT NULL DEFAULT 2,
+                adaptive_profile TEXT NOT NULL DEFAULT 'dyslexia',
+                reading_topic TEXT NOT NULL,
+                teacher_note TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        # Предзаполнение 3 ролей (Учитель/Админ, Ученик, Родитель), если таблица пуста
+        existing_users = conn.execute("SELECT COUNT(*) AS cnt FROM users").fetchone()["cnt"]
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if existing_users == 0:
+            seed_users = [
+                (
+                    "teacher",
+                    "1111",
+                    "Айжан Мұратқызы",
+                    "teacher",
+                    "dyslexia",
+                    2,
+                    "Алихан",
+                    now_iso,
+                ),
+                (
+                    "student",
+                    "2222",
+                    "Алихан",
+                    "student",
+                    "dyslexia",
+                    2,
+                    "Алихан",
+                    now_iso,
+                ),
+                (
+                    "parent",
+                    "3333",
+                    "Марат (Ата-ана)",
+                    "parent",
+                    "dyslexia",
+                    2,
+                    "Алихан",
+                    now_iso,
+                ),
+            ]
+            conn.executemany(
+                """
+                INSERT INTO users (
+                    username, pin_code, full_name, role, adaptive_profile, grade, linked_student_name, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                seed_users,
+            )
+
+        existing_hw = conn.execute("SELECT COUNT(*) AS cnt FROM homework_assignments").fetchone()["cnt"]
+        if existing_hw == 0:
+            conn.execute(
+                """
+                INSERT INTO homework_assignments (
+                    student_name, teacher_name, target_phoneme, target_level,
+                    adaptive_profile, reading_topic, teacher_note, status, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "Алихан",
+                    "Айжан Мұратқызы",
+                    "қ",
+                    2,
+                    "dyslexia",
+                    "Қазақстан табиғаты",
+                    "Үйде «Қ» мен «К» дыбыстарының минималды жұптарын 5 минут қайталап, «Қазақстан табиғаты» мәтінін буынға бөліп оқып шығыңыздар.",
+                    "pending",
+                    now_iso,
+                ),
+            )
         conn.commit()
 
 
@@ -781,8 +881,9 @@ _easyocr_reader = None
 
 def _get_easyocr_reader():
     """
-    Ленивая инициализация EasyOCR(['kk', 'ru']) строго на CPU (gpu=False) с хранением весов на диске D:,
-    чтобы не занимать VRAM видеокарты (где уже работают Whisper и MMS-1B).
+    Ленивая инициализация EasyOCR(['ru', 'uk', 'mn', 'tjk']) строго на CPU (gpu=False) с хранением весов на диске D:.
+    В EasyOCR все кириллические языки используют одну модель `cyrillic_g2.pth`, а комбинация
+    ['ru', 'uk', 'mn', 'tjk'] разблокирует в её словаре специфические казахские буквы Іі, Ғғ, Ққ, Үү, Өө.
     """
     global _easyocr_reader
     if _easyocr_reader is None:
@@ -794,10 +895,18 @@ def _get_easyocr_reader():
                 detail="Библиотека easyocr не установлена (pip install easyocr pymupdf).",
             ) from exc
 
+        try:
+            from PIL import Image  # type: ignore
+
+            if not hasattr(Image, "ANTIALIAS") and hasattr(Image, "Resampling"):
+                setattr(Image, "ANTIALIAS", Image.Resampling.LANCZOS)
+        except Exception:
+            pass
+
         EASYOCR_MODELS_DIR.mkdir(parents=True, exist_ok=True)
-        print(f"Инициализация EasyOCR (['kk', 'ru'], gpu=False, dir={EASYOCR_MODELS_DIR})...")
+        print(f"Инициализация EasyOCR (cyrillic_g2 + KZ chars, gpu=False, dir={EASYOCR_MODELS_DIR})...")
         _easyocr_reader = easyocr.Reader(
-            ["kk", "ru"],
+            ["ru", "uk", "mn", "tjk"],
             gpu=False,
             model_storage_directory=str(EASYOCR_MODELS_DIR),
         )
@@ -824,10 +933,109 @@ def _downscale_image_bytes(raw_bytes: bytes, max_side: int = 1280) -> bytes:
         return raw_bytes
 
 
+# Только базовые частотные служебные слова и союзы казахского языка,
+# в которых EasyOCR cyrillic_g2 теряет буквы ә/ө/ұ из-за отсутствия их в словаре модели:
+KZ_COMMON_FUNCTION_WORDS: dict[str, str] = {
+    "бүл": "бұл",
+    "жэне": "және",
+    "жоне": "және",
+    "эрі": "әрі",
+    "өрі": "әрі",
+    "дэл": "дәл",
+    "коп": "көп",
+    "соз": "сөз",
+}
+
+
+def _postprocess_kazakh_ocr(raw_text: str) -> str:
+    """
+    Универсальный лингвистический пост-процессор для EasyOCR (cyrillic_g2) без хардкода под конкретный текст.
+    Восстанавливает казахские буквы (ң, ә, ұ, ғ, қ, ө), которые cyrillic_g2 путает с русскими,
+    опираясь исключительно на фонетические законы казахского языка и сингармонизм (Үндестік заңы):
+    1. Склейка переносов строк (включая случаи, когда дефис на конце строки был пропущен OCR перед суффиксом).
+    2. ц -> ң (в исконно казахских словах и окончаниях), э -> ә.
+    3. Закон сингармонизма (Үндестік заңы):
+       - в твёрдых словах (с гласными а, о, ұ, ы и согласными қ, ғ) буквы ү -> ұ, г -> ғ;
+       - в мягких словах (с гласными е, і, ә, ү, ө) буква о в первом слоге -> ө (сойлеу -> сөйлеу, коркем -> көркем),
+         а в сочетании с қ/ғ буква к -> қ (окулық -> оқулық, үлттык -> ұлттық).
+    """
+    t = re.sub(r"-\s*\r?\n\s*", "", raw_text)
+    t = re.sub(r"\s+", " ", t).strip()
+
+    # 1. Склейка переносов через дефис и пробел (кроме редупликаций вроде қа-қа, көп-көп)
+    t = re.sub(
+        r"([а-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ]{2,})-\s+([а-яәіңғүұқөһ]{2,})",
+        lambda m: (
+            m.group(1) + m.group(2)
+            if m.group(1).lower() != m.group(2).lower()
+            else m.group(0)
+        ),
+        t,
+    )
+    # Склейка оторванных при переносе строки суффиксов (-лығын/-лігін/-лық/-лік/-дағы/-дегі), если OCR потерял дефис
+    t = re.sub(
+        r"([а-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ]{2,})\s+(лы[ғгқк]ы?н|лі[гк]і?н|лы[қк]|лі[кг])\b",
+        r"\1\2",
+        t,
+    )
+
+    # 2. Восстановление кавычек «...» из < и >
+    t = re.sub(r"<([а-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ])", r"«\1", t)
+    t = re.sub(r"([а-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ])\s*>", r"\1»", t)
+
+    # 3. Универсальная замена ц -> ң (кроме заимствований с ци/це)
+    t = re.sub(r"ц(?![иеИЕ])", "ң", t)
+    t = re.sub(r"Ц(?![иеИЕ])", "Ң", t)
+
+    # 4. Универсальная замена э -> ә в казахских словах
+    t = re.sub(r"\bэ(?=[а-яәіңғүұқөһ])", "ә", t)
+    t = re.sub(r"\bЭ(?=[а-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ])", "Ә", t)
+    t = re.sub(r"(?<=[а-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ])э", "ә", t)
+
+    # 5. Закон сингармонизма (Үндестік заңы) для каждого слова
+    def _fix_word(m: re.Match) -> str:
+        w = m.group(0)
+        wl = w.lower()
+        if wl in KZ_COMMON_FUNCTION_WORDS:
+            fixed = KZ_COMMON_FUNCTION_WORDS[wl]
+            return fixed.capitalize() if w[0].isupper() else fixed
+
+        # Рядом с увулярными қ/ғ буква ү всегда является твёрдой ұ (құрметтеуіміз, құрал)
+        w = re.sub(r"([қғҚҒ])ү", r"\1ұ", w)
+        w = re.sub(r"ү([қғҚҒ])", r"ұ\1", w)
+        # Рядом с твёрдыми гласными а, о, ұ, ы буква г всегда является ғ (мағыналарымен, баға, болуға)
+        w = re.sub(r"([аоұыАОҰЫ])г", r"\1ғ", w)
+        w = re.sub(r"г([аоұыАОҰЫ])", r"ғ\1", w)
+
+        has_back = bool(re.search(r"[аұықғАҰЫҚҒ]", w))
+        has_front = bool(re.search(r"[әеіөүӘЕІӨҮ]", w))
+
+        # Твёрдые слова (жуан сөздер): ү -> ұ, г -> ғ, к -> қ рядом с твёрдыми гласными
+        if has_back and not has_front:
+            w = w.replace("ү", "ұ").replace("Ү", "Ұ")
+            w = w.replace("г", "ғ").replace("Г", "Ғ")
+            w = re.sub(r"([аоұыАОҰЫ])к", r"\1қ", w)
+            w = re.sub(r"к([аоұыАОҰЫ])", r"қ\1", w)
+        # Мягкие слова (жіңішке сөздер): в исконно казахских мягких словах буква 'о' в первом слоге — это 'ө' (сөйлеу, көркем, сөздер, төселесің)
+        elif has_front and not has_back:
+            w = re.sub(r"^([бвгғджзйклмнңпрстфхцчшщ])о", r"\1ө", w)
+            w = re.sub(r"^([БВГҒДЖЗЙКЛМНҢПРСТФХЦЧШЩ])о", r"\1ө", w)
+            w = re.sub(r"^о(?=[йрлзсңтк])", "ө", w)
+            w = re.sub(r"^О(?=[йрлзсңтк])", "Ө", w)
+
+        return w
+
+    t = re.sub(r"[а-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ]+", _fix_word, t)
+
+    # 6. Двоеточие на конце предложения перед заглавной буквой или в конце текста -> точка
+    t = re.sub(r":(?=\s+[А-ЯӘІҢҒҮҰҚӨҺ]|\s*$)", ".", t)
+    t = re.sub(r"\s+([,.!?;:])", r"\1", t)
+    return t
+
+
 def _clean_and_limit_ocr_text(raw_text: str) -> tuple[str, bool]:
-    """Склеивает переносы слов по дефису, убирает лишние пробелы и обрезает до MAX_OCR_TEXT_CHARS."""
-    text = re.sub(r"-\s*\r?\n\s*", "", raw_text)
-    text = re.sub(r"\s+", " ", text).strip()
+    """Применяет казахский фонетический пост-процессор и обрезает до MAX_OCR_TEXT_CHARS."""
+    text = _postprocess_kazakh_ocr(raw_text)
     if len(text) <= MAX_OCR_TEXT_CHARS:
         return text, False
 
@@ -848,12 +1056,15 @@ def _extract_text_sync(
 
     if is_pdf:
         try:
-            import fitz  # type: ignore
-        except ImportError as exc:
-            raise HTTPException(
-                status_code=503,
-                detail="Библиотека PyMuPDF (fitz) не установлена (pip install pymupdf).",
-            ) from exc
+            import pymupdf as fitz  # type: ignore
+        except ImportError:
+            try:
+                import fitz  # type: ignore
+            except ImportError as exc:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Библиотека PyMuPDF не установлена (pip install pymupdf).",
+                ) from exc
 
         doc = fitz.open(stream=raw_bytes, filetype="pdf")
         total_pages = len(doc)
@@ -865,8 +1076,10 @@ def _extract_text_sync(
         page_obj = doc[page_num - 1]
         page_txt = page_obj.get_text("text").strip()
 
-        # Если текстовый слой на выбранной странице пустой (сканированный PDF) — рендерим 1 страницу в EasyOCR
-        if len(page_txt) < 10:
+        # Проверяем, что в текстовом слое реально есть кириллические/казахские буквы
+        # (защита от сканов и PDF со сломанной кодировкой шрифтов вроде "·······")
+        cyrillic_chars = re.findall(r"[а-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ]", page_txt)
+        if len(cyrillic_chars) < 10:
             reader = _get_easyocr_reader()
             pix = page_obj.get_pixmap(dpi=160)
             png_bytes = _downscale_image_bytes(pix.tobytes("png"), max_side=1280)
@@ -948,13 +1161,65 @@ class ReadingProgressRequest(BaseModel):
 
 
 EMOJI_HINTS = [
-    (["өзен", "су", "теңіз", "көл", "арал", "сырдария"], "🌊"),
-    (["ғарыш", "зымыран", "байқоңыр", "жұлдыз", "ай", "жер"], "🚀"),
-    (["жануар", "аң", "құс", "киік", "барыс", "табиғат"], "🦌"),
+    (["өзен", "теңіз", "көл", "арал", "сырдария", "суды", "су "], "🌊"),
+    (["ғарыш", "зымыран", "байқоңыр", "жұлдыз", "планета"], "🚀"),
+    (["жануар", "аңдар", "құстар", "киік", "барыс", "табиғат", "қорық"], "🦌"),
     (["тау", "дала", "орман", "ағаш", "гүл"], "🏔️"),
     (["күріш", "егін", "шаруа", "нан"], "🌾"),
-    (["ғалым", "кітап", "мектеп", "білім"], "📘"),
+    (["ғалым", "кітап", "мектеп", "білім", "оқулық", "тіл", "сөйлем", "мәтін"], "📘"),
 ]
+
+# Лексическое упрощение книжных и абстрактных оборотов для режима ПДТ / ЗПР (Easy-to-Read)
+ZPR_EASY_READ_SUBS: list[tuple[str, str]] = [
+    (r"тіршілік\s+етеді", "өмір сүреді"),
+    (r"мекендейді", "тұрады"),
+    (r"сирек\s+кездесетін", "ерекше"),
+    (r"арнайы\s+қорықтар\s+құрылған", "жануарларды қорғайтын қорықтар ашылған"),
+    (r"табиғаттың\s+асыл\s+байлығы", "табиғатқа өте керек, оларды қорғауымыз керек"),
+    (r"су\s+ресурстарын\s+тиімді\s+пайдалану\s+жолдарын\s+зерттеуде", "суды босқа төкпей, үнемдеп қолдануды үйретеді"),
+    (r"күріш\s+шаруашылығы\s+жақсы\s+дамыған", "диқандар көп күріш өсіреді"),
+    (r"әрбір\s+баланың\s+парызы", "бәріміздің маңызды міндетіміз"),
+    (r"аумағынан\s+ағып\s+өтіп", "жерімен ағып"),
+    (r"самғап\s+ұшады", "биікке ұшады"),
+    (r"ерлік\s+көрсетті", "үлкен еңбек сіңірді"),
+    (r"адамзатқа\s+жаңа\s+білім\s+береді", "адамдарға көп жаңа нәрсе үйретеді"),
+    (r"мәліметтермен\s+таныстыруды\s+одан\s+әрі\s+жалғастырады", "көп қызық ережелерді үйретеді"),
+    (r"ұлттық\s+мұра\s*[—–-]?\s*ана\s+тілімізді\s+білуіміз\s+және\s+оны\s+құрметтеуіміз\s+қажет", "өз ана тілімізді жақсы біліп, құрметтеуіміз керек"),
+    (r"тілдің\s+көркемдік\s+құралдарымен\s+танысасың", "әдемі сөйлеуді үйренесің"),
+    (r"дұрыс\s+құрауға\s+төселесің", "дұрыс құрастыруды оңай үйренесің"),
+    (r"бейнелейді", "көрсетеді"),
+]
+
+
+def _simplify_sentence_for_zpr(sent: str) -> str:
+    res = sent
+    for pat, repl in ZPR_EASY_READ_SUBS:
+        res = re.sub(pat, repl, res, flags=re.IGNORECASE)
+    return res
+
+
+def _split_sentence_for_adhd(sent: str) -> list[str]:
+    """Дробит длинное предложение на короткие динамичные микро-фразы (по 3–5 слов) для СДВГ."""
+    clean = re.sub(r"\s+", " ", sent).strip().rstrip(".!?")
+    if not clean:
+        return []
+    # Сначала делим по запятым, тире и союзам (және, бірақ, үшін)
+    parts = [
+        p.strip()
+        for p in re.split(r"\s*(?:,|;|—|–|\bжәне\b|\bал\b|\bүшін\b)\s*", clean)
+        if p.strip()
+    ]
+    micro_cards: list[str] = []
+    for p in parts:
+        words = p.split()
+        if len(words) <= 5:
+            micro_cards.append(f"{p[0].upper()}{p[1:]}." if len(p) > 1 else f"{p}.")
+        else:
+            for i in range(0, len(words), 5):
+                chunk = " ".join(words[i : i + 5]).strip()
+                if chunk:
+                    micro_cards.append(f"{chunk[0].upper()}{chunk[1:]}.")
+    return micro_cards
 
 KEYWORD_GLOSSARY = {
     "сырдария": "Қазақстандағы үлкен әрі ұзын өзен.",
@@ -976,63 +1241,115 @@ def _pick_card_icon(text: str, idx: int) -> str:
     return fallback_icons[(idx - 1) % len(fallback_icons)]
 
 
-def _extract_fallback_keywords(card_text: str) -> list[dict[str, str]]:
+def _extract_fallback_keywords(card_text: str, mode: str = "adhd") -> list[dict[str, str]]:
     words = re.findall(r"[а-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ]+", card_text)
     if not words:
         return []
     result: list[dict[str, str]] = []
     seen: set[str] = set()
+    max_kws = 3 if mode == "zpr" else (1 if mode == "adhd" else 2)
+
     for w in sorted(words, key=len, reverse=True):
         wl = w.lower()
         if wl in seen or len(wl) < 4:
             continue
         seen.add(wl)
+        syl = format_for_dyslexia(w)["syllable_text"]
+        syl_count = len(syl.split("-"))
+        special_letters = sorted(set(ch for ch in wl if ch in "қғңөүұәіһ"))
+
         explanation = KEYWORD_GLOSSARY.get(wl)
         if not explanation:
             for k, val in KEYWORD_GLOSSARY.items():
                 if k in wl:
                     explanation = val
                     break
-        if not explanation:
-            syl = format_for_dyslexia(w)["syllable_text"]
-            explanation = f"Буынға бөліп оқы: {syl} ({len(syl.split('-'))} буын)."
+
+        if mode == "dyslexia":
+            phoneme_note = (
+                f" Ерекше дыбыстар: {', '.join(special_letters)}."
+                if special_letters
+                else ""
+            )
+            explanation = f"Буынға бөліп оқы: {syl} ({syl_count} буын).{phoneme_note}"
+        elif mode == "zpr":
+            if explanation:
+                explanation = f"{explanation} (Оқылуы: {syl})"
+            else:
+                explanation = f"Мағыналы сөз • Асықпай буынмен оқы: {syl} ({syl_count} буын)."
+        else:
+            if not explanation:
+                explanation = f"Негізгі тірек сөз ({syl})."
+
         result.append({"word": w, "explanation": explanation})
-        if len(result) >= 2:
+        if len(result) >= max_kws:
             break
     return result
 
 
-def _local_adapt_fallback(raw_text: str) -> dict[str, Any]:
-    """Локальный фолбэк для Модуля В: разбивает текст на 3–6 коротких карточек (до 7–8 слов)."""
+def _pick_focus_word(card_text: str) -> str:
+    words = re.findall(r"[а-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ]+", card_text)
+    if not words:
+        return ""
+    return max(words, key=len)
+
+
+def _build_zpr_coach_tip(card_text: str, focus_word: str) -> str:
+    if focus_word:
+        fw_lower = focus_word.lower()
+        for k, val in KEYWORD_GLOSSARY.items():
+            if k in fw_lower:
+                return f"Қарапайым тілмен: бұл сөйлемде «{focus_word}» туралы айтылған ({val})"
+        return f"Негізгі ой: «{focus_word}» сөзіне мән беріп, сөйлемді асықпай елестетіп оқы."
+    return "Негізгі ойды елестетіп, асықпай оқып шық."
+
+
+def _local_adapt_fallback(raw_text: str, mode: str = "adhd") -> dict[str, Any]:
+    """
+    Профильдік локальный фолбэк для Модуля В:
+    - adhd (СДВГ): дробит предложения по союзам и запятым на ультра-короткие тезисы (3–5 слов), слитное чтение, фокус на главном слове.
+    - dyslexia (Дислексия): сохраняет плавный ритм предложения, строит слоговую лесенку трудных слов и звуковой разбор.
+    - zpr (ПДТ / ЗПР): переписывает книжные и абстрактные обороты простыми бытовыми словами (Easy-to-Read) + добавляет смысловое пояснение.
+    """
     cleaned = re.sub(r"\s+", " ", raw_text).strip()
     raw_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", cleaned) if s.strip()]
     if not raw_sentences:
         raw_sentences = [cleaned]
 
     short_chunks: list[str] = []
-    for sent in raw_sentences:
-        words = sent.split()
-        if len(words) <= 9:
-            short_chunks.append(sent)
-        else:
-            # Делим длинное предложение по запятым или по 7–8 слов
-            sub_parts = [p.strip() for p in re.split(r",\s*", sent) if p.strip()]
-            for part in sub_parts:
-                pw = part.split()
-                if len(pw) <= 8:
+    if mode == "adhd":
+        for sent in raw_sentences:
+            short_chunks.extend(_split_sentence_for_adhd(sent))
+        short_chunks = short_chunks[:6]
+    elif mode == "zpr":
+        for sent in raw_sentences:
+            simplified = _simplify_sentence_for_zpr(sent)
+            short_chunks.append(simplified)
+        short_chunks = short_chunks[:5]
+    else:
+        # dyslexia: 4–5 ритмичных карточек
+        for sent in raw_sentences:
+            words = sent.split()
+            if len(words) <= 8:
+                short_chunks.append(sent)
+            else:
+                sub_parts = [p.strip() for p in re.split(r"[,;—–]\s*", sent) if p.strip()]
+                for part in sub_parts:
                     short_chunks.append(part if part.endswith((".", "!", "?")) else f"{part}.")
-                else:
-                    for i in range(0, len(pw), 7):
-                        slice_str = " ".join(pw[i : i + 7])
-                        short_chunks.append(
-                            slice_str if slice_str.endswith((".", "!", "?")) else f"{slice_str}."
-                        )
-
-    short_chunks = short_chunks[:6]
+        short_chunks = short_chunks[:5]
 
     cards: list[dict[str, Any]] = []
     for idx, c_text in enumerate(short_chunks, start=1):
         dys = format_for_dyslexia(c_text)
+        focus_w = _pick_focus_word(c_text)
+        if mode == "adhd":
+            coach_tip = f"⚡ Қысқа факт #{idx}: басты тірек сөз — «{focus_w}»"
+        elif mode == "dyslexia":
+            focus_syl = format_for_dyslexia(focus_w)["syllable_text"] if focus_w else ""
+            coach_tip = f"🔤 Қиын сөзді буынмен қосып оқы: {focus_syl}"
+        else:
+            coach_tip = _build_zpr_coach_tip(c_text, focus_w)
+
         cards.append(
             {
                 "id": idx,
@@ -1040,7 +1357,9 @@ def _local_adapt_fallback(raw_text: str) -> dict[str, Any]:
                 "syllable_text": dys["syllable_text"],
                 "tokens": dys["tokens"],
                 "icon": _pick_card_icon(c_text, idx),
-                "keywords": _extract_fallback_keywords(c_text),
+                "focus_word": focus_w,
+                "coach_tip": coach_tip,
+                "keywords": _extract_fallback_keywords(c_text, mode=mode),
             }
         )
 
@@ -1058,7 +1377,7 @@ def _local_adapt_fallback(raw_text: str) -> dict[str, Any]:
             "answer_index": 0,
         },
         {
-            "question": f"Мәтінде кездескен маңызды сөзді тап:",
+            "question": "Мәтінде кездескен маңызды тірек сөзді тап:",
             "options": [
                 last_kw,
                 "Теледидар",
@@ -1070,6 +1389,7 @@ def _local_adapt_fallback(raw_text: str) -> dict[str, Any]:
 
     return {
         "source": "local_fallback",
+        "mode": mode,
         "cards": cards,
         "quiz": quiz,
     }
@@ -1131,13 +1451,68 @@ async def llm_health() -> dict[str, Any]:
         }
 
 
+def _build_kazllm_system_prompt(mode: str) -> str:
+    if mode == "dyslexia":
+        return (
+            "Сен дислексиясы бар балаларға арналған қазақ тілі логопед-әдіскерісің. "
+            "Мақсат: балаға оқуға қиын, тым ұзын сөздерді қысқа әрі оңай оқылатын синонимдермен алмастырып, "
+            "мәтінді 4–5 ырғақты карточкаға (әрқайсысы 5–7 сөз) бөл. "
+            "Әр карточка үшін: "
+            "1) text — оқуға жеңіл сөйлем; "
+            "2) icon — сәйкес эмодзи; "
+            "3) focus_word — сөйлемдегі буынға бөліп жаттығатын басты сөз; "
+            "4) coach_tip — сол сөзді қалай дұрыс әрі анық оқу керектігі туралы қысқа кеңес; "
+            "5) keywords (2 сөз) — буынға бөлінген түрі мен мағынасы. "
+            "Соңында 2 тест сұрағын (quiz) құрастыр. "
+            "Жауапты тек JSON форматында қайтар:\n"
+            '{"cards": [{"text": "...", "icon": "🔤", "focus_word": "...", "coach_tip": "...", '
+            '"keywords": [{"word": "...", "explanation": "..."}]}], '
+            '"quiz": [{"question": "...", "options": ["...", "...", "..."], "answer_index": 0}]}'
+        )
+    if mode == "zpr":
+        return (
+            "Сен ПДТ (ЗПР — психикалық даму тежелуі) бар балаларға арналған арнайы педагог-әдіскерсің. "
+            "Мақсат: күрделі, абстрактілі ойларды 1–2 сынып баласы бірден түсінетін өте қарапайым, "
+            "күнделікті тұрмыстық тілмен (Easy-to-Read) 3–5 карточкаға мазмұндап жаз. "
+            "Әр карточка үшін: "
+            "1) text — өте қарапайым, түсінікті сөйлем; "
+            "2) icon — көрнекі эмодзи; "
+            "3) focus_word — басты ұғым; "
+            "4) coach_tip — «Қарапайым тілмен айтқанда: ...» деп осы карточканың негізгі мағынасын балаға өмірлік мысалмен түсіндір; "
+            "5) keywords (2–3 сөз) — әр сөздің балаға өте түсінікті, қарапайым түсіндірмесі. "
+            "Соңында мәтінді түсінгенін тексеретін 2 өте жеңіл сұрақ (quiz) құрастыр. "
+            "Жауапты тек JSON форматында қайтар:\n"
+            '{"cards": [{"text": "...", "icon": "💡", "focus_word": "...", "coach_tip": "Қарапайым тілмен: ...", '
+            '"keywords": [{"word": "...", "explanation": "..."}]}], '
+            '"quiz": [{"question": "...", "options": ["...", "...", "..."], "answer_index": 0}]}'
+        )
+    # Default: adhd (СДВГ / Зейін тапшылығы)
+    return (
+        "Сен СДВГ (зейін тапшылығы мен гиперактивтілік) бар балаларға арналған қазақ тілі әдіскерісің. "
+        "Мақсат: баланың назарын жоғалтпау үшін мәтінді 4–6 өте қысқа, динамикалық микро-карточкаға бөл. "
+        "Әр карточкада тек БІР нақты әрекет немесе факт және ең көбі 4–6 сөз ғана болсын (артық сөзсіз!). "
+        "Әр карточка үшін: "
+        "1) text — өте қысқа, серпінді сөйлем (4–6 сөз); "
+        "2) icon — жарқын эмодзи; "
+        "3) focus_word — сөйлемдегі ең басты тірек сөз (баланың көзі бірден түсетін сөз); "
+        "4) coach_tip — баланың зейінін ұстайтын қысқа мотивациялық импульс (мысалы: «⚡ Есте сақта: ...»); "
+        "5) keywords (1 басты сөз) — өте қысқа түсіндірме. "
+        "Соңында зейінді тексеретін 2 қысқа блиц-сұрақ (quiz) құрастыр. "
+        "Жауапты тек JSON форматында қайтар:\n"
+        '{"cards": [{"text": "...", "icon": "⚡", "focus_word": "...", "coach_tip": "...", '
+        '"keywords": [{"word": "...", "explanation": "..."}]}], '
+        '"quiz": [{"question": "...", "options": ["...", "...", "..."], "answer_index": 0}]}'
+    )
+
+
 @app.post("/adapt-text")
 async def adapt_text_endpoint(req: AdaptTextRequest) -> dict[str, Any]:
     clean_text = re.sub(r"\s+", " ", req.text).strip()
     if not clean_text:
         raise HTTPException(status_code=400, detail="Text must not be empty.")
 
-    text_hash = hashlib.sha256(f"{req.mode}:{clean_text}".encode("utf-8")).hexdigest()
+    mode = req.mode if req.mode in ("adhd", "dyslexia", "zpr") else "adhd"
+    text_hash = hashlib.sha256(f"v2:{mode}:{clean_text}".encode("utf-8")).hexdigest()
 
     # 1. Проверяем кэш в tandem_progress.db
     with _get_progress_conn() as conn:
@@ -1151,27 +1526,19 @@ async def adapt_text_endpoint(req: AdaptTextRequest) -> dict[str, Any]:
             return cached_data
 
     base_url, model_name = get_kazllm_config()
-    system_prompt = (
-        "Сен ЕББҚ (СДВГ, дислексия, ЗПР) бар балаларға арналған қазақ тілі әдіскерісің. "
-        "Берілген мәтінді балаға өте жеңіл тілмен 3–6 қысқа карточкаға бөл. "
-        "Әр карточкада тек БІР қарапайым ой (ең көбі 7–8 сөз) болсын. "
-        "Әр карточка үшін сәйкес эмодзи (icon) және 1–2 қиын сөздің балаға түсінікті қысқаша түсіндірмесін (keywords) жаз. "
-        "Соңында мәтін бойынша 2 қарапайым тест сұрағын (quiz: question, options[3], answer_index) құрастыр. "
-        "Жауапты тек мынадай JSON форматында қайтар:\n"
-        '{"cards": [{"text": "...", "icon": "🌊", "keywords": [{"word": "...", "explanation": "..."}]}], '
-        '"quiz": [{"question": "...", "options": ["...", "...", "..."], "answer_index": 0}]}'
-    )
+    system_prompt = _build_kazllm_system_prompt(mode)
 
     ollama_payload = {
         "model": model_name,
         "system": system_prompt,
-        "prompt": f"Мәтінді бейімде:\n{clean_text}",
+        "prompt": f"Профиль: {mode.upper()}.\nМәтінді осы профиль бойынша бейімде:\n{clean_text}",
         "stream": False,
         "format": "json",
-        "options": {"temperature": 0.2},
+        "options": {"temperature": 0.25},
     }
 
     result_data: Optional[dict[str, Any]] = None
+    max_kws = 3 if mode == "zpr" else (1 if mode == "adhd" else 2)
 
     try:
         resp_body = await _http_post_json(f"{base_url}/api/generate", ollama_payload, timeout=45.0)
@@ -1185,10 +1552,20 @@ async def adapt_text_endpoint(req: AdaptTextRequest) -> dict[str, Any]:
                     continue
                 c_text = str(item["text"]).strip()
                 dys = format_for_dyslexia(c_text)
+                focus_w = str(item.get("focus_word") or _pick_focus_word(c_text)).strip()
+                coach_tip = str(item.get("coach_tip") or "").strip()
+                if not coach_tip:
+                    if mode == "adhd":
+                        coach_tip = f"⚡ Назар аудар: басты сөз — «{focus_w}»!"
+                    elif mode == "dyslexia":
+                        coach_tip = "🔤 Әр буынды түсі бойынша асықпай қосып оқы."
+                    else:
+                        coach_tip = _build_zpr_coach_tip(c_text, focus_w)
+
                 kws = item.get("keywords")
                 valid_kws: list[dict[str, str]] = []
                 if isinstance(kws, list):
-                    for kw in kws[:2]:
+                    for kw in kws[:max_kws]:
                         if isinstance(kw, dict) and kw.get("word") and kw.get("explanation"):
                             valid_kws.append(
                                 {
@@ -1197,7 +1574,7 @@ async def adapt_text_endpoint(req: AdaptTextRequest) -> dict[str, Any]:
                                 }
                             )
                 if not valid_kws:
-                    valid_kws = _extract_fallback_keywords(c_text)
+                    valid_kws = _extract_fallback_keywords(c_text, mode=mode)
 
                 enriched_cards.append(
                     {
@@ -1206,6 +1583,8 @@ async def adapt_text_endpoint(req: AdaptTextRequest) -> dict[str, Any]:
                         "syllable_text": dys["syllable_text"],
                         "tokens": dys["tokens"],
                         "icon": str(item.get("icon") or _pick_card_icon(c_text, idx)),
+                        "focus_word": focus_w,
+                        "coach_tip": coach_tip,
                         "keywords": valid_kws,
                     }
                 )
@@ -1233,10 +1612,11 @@ async def adapt_text_endpoint(req: AdaptTextRequest) -> dict[str, Any]:
 
             if enriched_cards:
                 if not valid_quiz:
-                    valid_quiz = _local_adapt_fallback(clean_text)["quiz"]
+                    valid_quiz = _local_adapt_fallback(clean_text, mode=mode)["quiz"]
                 result_data = {
                     "source": "kazllm",
                     "model": model_name,
+                    "mode": mode,
                     "cached": False,
                     "cards": enriched_cards,
                     "quiz": valid_quiz,
@@ -1245,10 +1625,11 @@ async def adapt_text_endpoint(req: AdaptTextRequest) -> dict[str, Any]:
         result_data = None
 
     if result_data is None:
-        fallback = _local_adapt_fallback(clean_text)
+        fallback = _local_adapt_fallback(clean_text, mode=mode)
         result_data = {
             "source": "local_fallback",
             "model": "local_python_fallback",
+            "mode": mode,
             "cached": False,
             "cards": fallback["cards"],
             "quiz": fallback["quiz"],
@@ -1541,6 +1922,179 @@ async def get_progress_weak_phonemes(student_name: Optional[str] = None) -> dict
         "student_name": student or "all",
         "weak_phonemes": weak_list,
     }
+
+
+# ---------------------------------------------------------------------------
+# Пользователи и 3 роли (Учитель/Админ, Ученик, Родитель) + Домашние задания
+# ---------------------------------------------------------------------------
+class AuthLoginRequest(BaseModel):
+    username: Optional[str] = None
+    pin_code: Optional[str] = None
+    role: Optional[str] = None
+
+
+class UpdateStudentProfileRequest(BaseModel):
+    adaptive_profile: str = Field(..., pattern="^(adhd|dyslexia|zpr)$")
+
+
+class CreateHomeworkRequest(BaseModel):
+    target_phoneme: str = Field(default="қ")
+    target_level: int = Field(default=2, ge=1, le=3)
+    adaptive_profile: str = Field(default="dyslexia")
+    reading_topic: str = Field(default="Қазақстан табиғаты")
+    teacher_note: str = Field(..., min_length=3)
+
+
+def _row_to_user_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": int(row["id"]),
+        "username": str(row["username"]),
+        "full_name": str(row["full_name"]),
+        "role": str(row["role"]),
+        "adaptive_profile": str(row["adaptive_profile"]),
+        "grade": int(row["grade"]),
+        "linked_student_name": str(row["linked_student_name"]),
+    }
+
+
+def _row_to_hw_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": int(row["id"]),
+        "student_name": str(row["student_name"]),
+        "teacher_name": str(row["teacher_name"]),
+        "target_phoneme": str(row["target_phoneme"]),
+        "target_level": int(row["target_level"]),
+        "adaptive_profile": str(row["adaptive_profile"]),
+        "reading_topic": str(row["reading_topic"]),
+        "teacher_note": str(row["teacher_note"]),
+        "status": str(row["status"]),
+        "created_at": str(row["created_at"]),
+    }
+
+
+@app.get("/auth/users")
+async def list_auth_users() -> dict[str, Any]:
+    with _get_progress_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM users ORDER BY CASE role WHEN 'teacher' THEN 1 WHEN 'student' THEN 2 ELSE 3 END"
+        ).fetchall()
+        hw_rows = conn.execute(
+            "SELECT * FROM homework_assignments ORDER BY id DESC LIMIT 5"
+        ).fetchall()
+    return {
+        "users": [_row_to_user_dict(r) for r in rows],
+        "homework": [_row_to_hw_dict(r) for r in hw_rows],
+    }
+
+
+@app.post("/auth/login")
+async def auth_login(payload: AuthLoginRequest) -> dict[str, Any]:
+    with _get_progress_conn() as conn:
+        row = None
+        if payload.username and payload.pin_code:
+            row = conn.execute(
+                "SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND pin_code = ?",
+                (payload.username.strip(), payload.pin_code.strip()),
+            ).fetchone()
+            if not row:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Логин немесе PIN-код қате / Неверный логин или PIN-код",
+                )
+        elif payload.role in ("teacher", "student", "parent"):
+            row = conn.execute(
+                "SELECT * FROM users WHERE role = ? LIMIT 1",
+                (payload.role,),
+            ).fetchone()
+        else:
+            raise HTTPException(status_code=400, detail="Укажите логин и PIN-код или роль.")
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Пользователь не найден.")
+
+        hw_rows = conn.execute(
+            "SELECT * FROM homework_assignments ORDER BY id DESC LIMIT 5"
+        ).fetchall()
+
+    return {
+        "user": _row_to_user_dict(row),
+        "homework": [_row_to_hw_dict(r) for r in hw_rows],
+    }
+
+
+@app.post("/auth/student-profile")
+async def update_student_adaptive_profile(payload: UpdateStudentProfileRequest) -> dict[str, Any]:
+    profile = payload.adaptive_profile
+    with _get_progress_conn() as conn:
+        conn.execute(
+            "UPDATE users SET adaptive_profile = ?",
+            (profile,),
+        )
+        conn.commit()
+    return {"status": "ok", "adaptive_profile": profile}
+
+
+@app.get("/homework")
+async def get_homework_list() -> dict[str, Any]:
+    with _get_progress_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM homework_assignments ORDER BY id DESC LIMIT 10"
+        ).fetchall()
+    return {"homework": [_row_to_hw_dict(r) for r in rows]}
+
+
+@app.post("/homework")
+async def create_homework(payload: CreateHomeworkRequest) -> dict[str, Any]:
+    now_iso = datetime.now(timezone.utc).isoformat()
+    profile = payload.adaptive_profile if payload.adaptive_profile in ("adhd", "dyslexia", "zpr") else "dyslexia"
+    ph = payload.target_phoneme if payload.target_phoneme in ("қ", "ғ", "ң", "ө", "ү", "р") else "қ"
+    with _get_progress_conn() as conn:
+        t_row = conn.execute("SELECT full_name FROM users WHERE role = 'teacher' LIMIT 1").fetchone()
+        teacher_name = str(t_row["full_name"]) if t_row else "Айжан Мұратқызы"
+        conn.execute(
+            "UPDATE users SET adaptive_profile = ?",
+            (profile,),
+        )
+        cursor = conn.execute(
+            """
+            INSERT INTO homework_assignments (
+                student_name, teacher_name, target_phoneme, target_level,
+                adaptive_profile, reading_topic, teacher_note, status, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+            """,
+            (
+                "Алихан",
+                teacher_name,
+                ph,
+                payload.target_level,
+                profile,
+                payload.reading_topic.strip() or "Қазақстан табиғаты",
+                payload.teacher_note.strip(),
+                now_iso,
+            ),
+        )
+        new_id = cursor.lastrowid
+        row = conn.execute("SELECT * FROM homework_assignments WHERE id = ?", (new_id,)).fetchone()
+        conn.commit()
+    return {"status": "ok", "homework": _row_to_hw_dict(row)}
+
+
+@app.post("/homework/{homework_id}/complete")
+async def complete_homework(homework_id: int) -> dict[str, Any]:
+    with _get_progress_conn() as conn:
+        conn.execute(
+            "UPDATE homework_assignments SET status = 'completed' WHERE id = ?",
+            (homework_id,),
+        )
+        row = conn.execute(
+            "SELECT * FROM homework_assignments WHERE id = ?",
+            (homework_id,),
+        ).fetchone()
+        conn.commit()
+    if not row:
+        raise HTTPException(status_code=404, detail="Homework not found")
+    return {"status": "ok", "homework": _row_to_hw_dict(row)}
 
 
 # ---------------------------------------------------------------------------
