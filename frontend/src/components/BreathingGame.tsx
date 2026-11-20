@@ -538,17 +538,17 @@ export function BreathingGame({ lang }: BreathingGameProps) {
         : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* 5 Mini-Games Selector Grid */}
-      <section className="surface-card p-6">
-        <h2 className="mb-3 flex items-center gap-2 text-lg font-extrabold text-slate-900">
+      <section className="surface-card p-4 sm:p-6">
+        <h2 className="mb-3 flex items-center gap-2 text-base font-extrabold text-slate-900 sm:text-lg">
           <Wind className="h-5 w-5 text-blue-600" />
           {lang === "kk"
             ? "Дыбыс пен тыныс ойындары"
             : "Игры для дыхания и голоса"}
         </h2>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
           {GAMES.map((g) => {
             const isSelected = g.id === selectedGame;
             return (
@@ -584,35 +584,35 @@ export function BreathingGame({ lang }: BreathingGameProps) {
       </section>
 
       {/* Active Game Arena */}
-      <section className="surface-card rounded-2xl border border-slate-200/90 p-6 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-start gap-3.5">
+      <section className="surface-card rounded-2xl border border-slate-200/90 p-4 shadow-sm sm:p-6">
+        <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-3">
             <div
-              className={`mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${currentMeta.colorClass}`}
+              className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl sm:h-12 sm:w-12 ${currentMeta.colorClass}`}
             >
               {renderGameIcon(currentMeta.id)}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-xl font-extrabold text-slate-900 sm:text-2xl">
+                <h3 className="text-lg font-extrabold text-slate-900 sm:text-2xl">
                   {lang === "kk" ? currentMeta.title_kk : currentMeta.title_ru}
                 </h3>
-                <span className="rounded-xl bg-slate-100 px-2.5 py-0.5 text-xs font-extrabold text-slate-700">
+                <span className="rounded-xl bg-slate-100 px-2.5 py-0.5 text-[11px] font-extrabold text-slate-700 sm:text-xs">
                   {lang === "kk" ? currentMeta.badge_kk : currentMeta.badge_ru}
                 </span>
               </div>
-              <p className="mt-1 text-sm font-medium text-slate-600">
+              <p className="mt-1 text-xs font-medium text-slate-600 sm:text-sm">
                 {lang === "kk" ? currentMeta.desc_kk : currentMeta.desc_ru}
               </p>
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex w-full gap-2 sm:w-auto">
             {!active ? (
               <button
                 type="button"
                 onClick={start}
-                className="inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-sky-700"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:bg-sky-700 sm:flex-none sm:px-5 sm:py-3"
               >
                 <Play className="h-4 w-4" />
                 {lang === "kk" ? "Ойынды бастау" : "Начать игру"}
@@ -621,7 +621,7 @@ export function BreathingGame({ lang }: BreathingGameProps) {
               <button
                 type="button"
                 onClick={stop}
-                className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-red-700"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:bg-red-700 sm:flex-none sm:px-5 sm:py-3"
               >
                 <Square className="h-4 w-4 fill-current" />
                 {lang === "kk" ? "Тоқтату" : "Остановить"}
@@ -630,10 +630,12 @@ export function BreathingGame({ lang }: BreathingGameProps) {
             <button
               type="button"
               onClick={resetCurrentGame}
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-extrabold text-slate-700 shadow-2xs transition hover:bg-slate-50"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-extrabold text-slate-700 shadow-2xs transition hover:bg-slate-50 sm:px-4 sm:py-3"
             >
               <RotateCcw className="h-4 w-4" />
-              {lang === "kk" ? "Қайта бастау" : "Сначала"}
+              <span className="hidden sm:inline">
+                {lang === "kk" ? "Қайта бастау" : "Сначала"}
+              </span>
             </button>
           </div>
         </div>
@@ -734,51 +736,67 @@ export function BreathingGame({ lang }: BreathingGameProps) {
 
         {/* ==================== GAME 3: BLOW THE DANDELION (ҚА! ҚО! АҚ!) ==================== */}
         {selectedGame === "dandelion" && (
-          <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-b from-sky-100 via-emerald-50 to-emerald-100 p-5">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="rounded-full bg-emerald-700 px-3 py-1 text-xs font-black text-white">
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-b from-sky-100 via-emerald-50 to-emerald-100 p-4 sm:p-5">
+            <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-700 px-3.5 py-1 text-xs font-black text-white shadow-2xs">
                 🌼 {lang === "kk" ? `Ұшқан үлпілдек: ${seedsBlown} / 5` : `Сдуто пушинок: ${seedsBlown} из 5`}
               </span>
-              <span className="text-xs font-extrabold text-emerald-900">
+              <span className="text-xs font-extrabold leading-snug text-emerald-900">
                 {lang === "kk"
                   ? "Дауыспен қысқа «ҚА!» немесе «АҚ!» деп айт"
                   : "Скажи голосом чёткий слог «ҚА!» или «АҚ!»"}
               </span>
             </div>
 
-            <svg viewBox="0 0 600 200" className="h-48 w-full">
-              <path d="M 160 200 Q 165 150 160 105" stroke="#15803d" strokeWidth="7" fill="none" />
-              <path d="M 160 175 Q 120 160 110 185 Q 135 190 160 185" fill="#22c55e" />
-              <path d="M 162 170 Q 200 155 210 180 Q 185 188 162 180" fill="#22c55e" />
-              <circle cx="160" cy="102" r="14" fill="#eab308" stroke="#ca8a04" strokeWidth="2" />
+            <svg viewBox="0 0 600 210" className="h-auto max-h-52 w-full">
+              {/* Stem & leaves */}
+              <path d="M 155 210 Q 160 160 155 112" stroke="#15803d" strokeWidth="7" strokeLinecap="round" fill="none" />
+              <path d="M 155 182 Q 112 165 104 190 Q 130 198 155 190" fill="#22c55e" />
+              <path d="M 157 176 Q 198 158 208 184 Q 182 194 157 185" fill="#22c55e" />
 
+              {/* 5 Symmetric Radial Dandelion Petals / Fluff Seeds */}
               {[0, 1, 2, 3, 4].map((idx) => {
                 const isBlown = idx < seedsBlown;
-                const angles = [-65, -32, 0, 32, 65];
-                const rad = (angles[idx] * Math.PI) / 180;
-                const baseX = 160 + Math.sin(rad) * 34;
-                const baseY = 102 - Math.cos(rad) * 34;
+                const angles = [-70, -35, 0, 35, 70];
+                const angleDeg = angles[idx];
+                const rad = (angleDeg * Math.PI) / 180;
+                // Anchor on the edge of the yellow flower center (r = 14)
+                const baseX = 155 + Math.sin(rad) * 14;
+                const baseY = 110 - Math.cos(rad) * 14;
 
-                const flyX = 290 + idx * 58;
-                const flyY = 38 + (idx % 2) * 32;
+                const flyX = 295 + idx * 56;
+                const flyY = 48 + (idx % 2) * 28;
 
-                const cx = isBlown ? flyX : baseX;
-                const cy = isBlown ? flyY : baseY;
+                const tx = isBlown ? flyX : baseX;
+                const ty = isBlown ? flyY : baseY;
+                const rot = isBlown ? 16 : angleDeg;
 
                 return (
                   <g
                     key={idx}
                     style={{
-                      transform: `translate(${cx}px, ${cy}px)`,
+                      transform: `translate(${tx}px, ${ty}px) rotate(${rot}deg)`,
                       transition: "transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1)",
                     }}
                   >
-                    <line x1="0" y1="0" x2="0" y2="18" stroke="#64748b" strokeWidth="1.8" />
-                    <circle cx="0" cy="-4" r="13" fill="#ffffff" opacity="0.92" stroke="#bae6fd" strokeWidth="1.5" />
-                    <circle cx="0" cy="0" r="3" fill="#f59e0b" />
+                    {/* Seed stalk */}
+                    <line x1="0" y1="0" x2="0" y2="-26" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" />
+                    {/* Delicate parachute rays */}
+                    <line x1="0" y1="-24" x2="-9" y2="-33" stroke="#94a3b8" strokeWidth="1.2" />
+                    <line x1="0" y1="-24" x2="9" y2="-33" stroke="#94a3b8" strokeWidth="1.2" />
+                    {/* Fluffy white crown */}
+                    <circle cx="0" cy="-32" r="12" fill="#ffffff" opacity="0.94" stroke="#bae6fd" strokeWidth="1.6" />
+                    <circle cx="-5" cy="-34" r="5" fill="#ffffff" opacity="0.85" />
+                    <circle cx="5" cy="-34" r="5" fill="#ffffff" opacity="0.85" />
+                    {/* Seed tip */}
+                    <circle cx="0" cy="-2" r="2.8" fill="#d97706" />
                   </g>
                 );
               })}
+
+              {/* Yellow flower receptacle rendered on top of seed bases */}
+              <circle cx="155" cy="110" r="15" fill="#eab308" stroke="#ca8a04" strokeWidth="2.5" />
+              <circle cx="151" cy="106" r="4" fill="#fef08a" opacity="0.7" />
             </svg>
           </div>
         )}
