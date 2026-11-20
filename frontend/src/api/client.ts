@@ -2,18 +2,24 @@ import type {
   AdaptLessonRequest,
   AdaptLessonResponse,
   AdaptTextResponse,
+  AuthLoginResponse,
+  AuthUsersResponse,
   CalibrateResponse,
+  CreateHomeworkPayload,
   EvaluateResponse,
   GetLessonsResponse,
+  HomeworkAssignment,
   LlmHealthResponse,
   OcrExtractResponse,
   ProgressSummaryResponse,
   ProgressWeakPhonemesResponse,
+  ReaderProfileMode,
   ReadingProgressPayload,
   SpeechProgressPayload,
   SpeechProgressResponse,
   TtsStatusResponse,
   TtsVoice,
+  UserRole,
   WeakPhonemesResponse,
 } from "../types/api";
 
@@ -215,4 +221,66 @@ export async function getProgressSummary(
   const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await fetch(`${API_BASE}/progress/summary${qs}`);
   return handleResponse<ProgressSummaryResponse>(res);
+}
+
+export async function getAuthUsers(): Promise<AuthUsersResponse> {
+  const res = await fetch(`${API_BASE}/auth/users`);
+  return handleResponse<AuthUsersResponse>(res);
+}
+
+export async function loginByRole(role: UserRole): Promise<AuthLoginResponse> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
+  return handleResponse<AuthLoginResponse>(res);
+}
+
+export async function loginByCredentials(
+  username: string,
+  pinCode: string
+): Promise<AuthLoginResponse> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, pin_code: pinCode }),
+  });
+  return handleResponse<AuthLoginResponse>(res);
+}
+
+export async function updateStudentAdaptiveProfile(
+  adaptiveProfile: ReaderProfileMode
+): Promise<{ status: string; adaptive_profile: ReaderProfileMode }> {
+  const res = await fetch(`${API_BASE}/auth/student-profile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adaptive_profile: adaptiveProfile }),
+  });
+  return handleResponse<{ status: string; adaptive_profile: ReaderProfileMode }>(res);
+}
+
+export async function getHomeworkList(): Promise<{ homework: HomeworkAssignment[] }> {
+  const res = await fetch(`${API_BASE}/homework`);
+  return handleResponse<{ homework: HomeworkAssignment[] }>(res);
+}
+
+export async function createHomework(
+  payload: CreateHomeworkPayload
+): Promise<{ status: string; homework: HomeworkAssignment }> {
+  const res = await fetch(`${API_BASE}/homework`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<{ status: string; homework: HomeworkAssignment }>(res);
+}
+
+export async function completeHomework(
+  homeworkId: number
+): Promise<{ status: string; homework: HomeworkAssignment }> {
+  const res = await fetch(`${API_BASE}/homework/${homeworkId}/complete`, {
+    method: "POST",
+  });
+  return handleResponse<{ status: string; homework: HomeworkAssignment }>(res);
 }

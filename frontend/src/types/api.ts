@@ -249,6 +249,8 @@ export interface AdaptiveCard {
   syllable_text: string;
   tokens: DyslexiaToken[];
   icon: string;
+  focus_word?: string;
+  coach_tip?: string;
   keywords: AdaptiveKeyword[];
 }
 
@@ -261,6 +263,7 @@ export interface AdaptiveQuizQuestion {
 export interface AdaptTextResponse {
   source: "kazllm" | "local_fallback";
   model: string;
+  mode?: ReaderProfileMode;
   cached?: boolean;
   cards: AdaptiveCard[];
   quiz: AdaptiveQuizQuestion[];
@@ -284,4 +287,48 @@ export interface ProgressSummaryResponse {
   quiz_correct: number;
   quiz_total: number;
   cached_texts_count: number;
+}
+
+// 3-Role User System (Teacher / Student / Parent) & Homework Assignments
+export type UserRole = "teacher" | "student" | "parent";
+
+export interface UserAccount {
+  id: number;
+  username: string;
+  full_name: string;
+  role: UserRole;
+  adaptive_profile: ReaderProfileMode;
+  grade: number;
+  linked_student_name: string;
+}
+
+export interface HomeworkAssignment {
+  id: number;
+  student_name: string;
+  teacher_name: string;
+  target_phoneme: TargetPhoneme;
+  target_level: 1 | 2 | 3;
+  adaptive_profile: ReaderProfileMode;
+  reading_topic: string;
+  teacher_note: string;
+  status: "pending" | "completed";
+  created_at: string;
+}
+
+export interface AuthUsersResponse {
+  users: UserAccount[];
+  homework: HomeworkAssignment[];
+}
+
+export interface AuthLoginResponse {
+  user: UserAccount;
+  homework: HomeworkAssignment[];
+}
+
+export interface CreateHomeworkPayload {
+  target_phoneme: TargetPhoneme;
+  target_level: 1 | 2 | 3;
+  adaptive_profile: ReaderProfileMode;
+  reading_topic: string;
+  teacher_note: string;
 }

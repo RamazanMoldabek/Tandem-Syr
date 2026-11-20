@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Play, RotateCcw, Square, Volume2, Wind } from "lucide-react";
+import {
+  Bug,
+  Car,
+  CheckCircle2,
+  Drum,
+  Flower2,
+  Play,
+  RotateCcw,
+  Sailboat,
+  Square,
+  Volume2,
+  Wind,
+} from "lucide-react";
 import { getTtsUrl } from "../api/client";
 import type { Lang } from "../types/api";
 
@@ -13,6 +25,7 @@ type BreathZone = "quiet" | "good" | "loud" | "wrong_sound";
 interface GameMeta {
   id: GameId;
   emoji: string;
+  colorClass: string;
   title_kk: string;
   title_ru: string;
   badge_kk: string;
@@ -25,16 +38,18 @@ const GAMES: GameMeta[] = [
   {
     id: "sailboat",
     emoji: "⛵",
+    colorClass: "bg-sky-100 text-sky-700 ring-1 ring-sky-200/80",
     title_kk: "Сырдария желкені",
     title_ru: "Парусник на Сырдарье",
-    badge_kk: "Таза тыныс (дауыссыз)",
-    badge_ru: "Чистый выдох (без голоса)",
+    badge_kk: "Таза тыныс",
+    badge_ru: "Чистый выдох",
     desc_kk: "Дауыс қоспай, тек таза ауамен жұмсақ әрі ұзақ үрлеп қайықты жағаға жеткіз.",
     desc_ru: "Без голоса, только чистым и плавным потоком воздуха дуй в микрофон, чтобы доплыть до берега.",
   },
   {
     id: "motor",
     emoji: "🚗",
+    colorClass: "bg-amber-100 text-amber-700 ring-1 ring-amber-200/80",
     title_kk: "Моторды оталдыр",
     title_ru: "Заведи моторчик",
     badge_kk: "Р / Ғ дірілі",
@@ -45,9 +60,10 @@ const GAMES: GameMeta[] = [
   {
     id: "dandelion",
     emoji: "🌼",
+    colorClass: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200/80",
     title_kk: "Бақбақ гүлі",
     title_ru: "Сдуй одуванчик",
-    badge_kk: "Қ дыбысы (Қа! Қо!)",
+    badge_kk: "Қа! Қо! Ақ!",
     badge_ru: "Слоги Қа! Қо!",
     desc_kk: "5 рет қысқа әрі анық дауыспен «Қа! ... Қо! ... Ақ!» деп айтып, 5 үлпілдекті ұшыр (жай үрлеу есептелмейді).",
     desc_ru: "Произнеси голосом 5 чётких слогов с паузой («Қа! ... Қо! ... Ақ!»), чтобы сдуть 5 пушинок (простое дутьё не считается).",
@@ -55,6 +71,7 @@ const GAMES: GameMeta[] = [
   {
     id: "bee",
     emoji: "🐝",
+    colorClass: "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-300/80",
     title_kk: "Бал арасы",
     title_ru: "Пчёлка собирает мёд",
     badge_kk: "Ң / Ө / Ү дауысы",
@@ -65,14 +82,30 @@ const GAMES: GameMeta[] = [
   {
     id: "drums",
     emoji: "🥁",
+    colorClass: "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200/80",
     title_kk: "Буын барабаны",
     title_ru: "Ритм-барабан по слогам",
-    badge_kk: "СДВГ / Буын ырғағы",
+    badge_kk: "Буын ырғағы",
     badge_ru: "Слоговой ритм",
     desc_kk: "Сөзді буынға бөліп, әр буынды дауыспен анық айт — әр дауысты буын келесі барабанды жағады!",
     desc_ru: "Произнеси слово чётко по слогам голосом с паузами — каждый голосовой слог зажигает следующий барабан!",
   },
 ];
+
+function renderGameIcon(id: GameId) {
+  switch (id) {
+    case "sailboat":
+      return <Sailboat className="h-5 w-5" />;
+    case "motor":
+      return <Car className="h-5 w-5" />;
+    case "dandelion":
+      return <Flower2 className="h-5 w-5" />;
+    case "bee":
+      return <Bug className="h-5 w-5" />;
+    case "drums":
+      return <Drum className="h-5 w-5" />;
+  }
+}
 
 interface DrumWord {
   word: string;
@@ -515,7 +548,7 @@ export function BreathingGame({ lang }: BreathingGameProps) {
             : "Игры для дыхания и голоса"}
         </h2>
 
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {GAMES.map((g) => {
             const isSelected = g.id === selectedGame;
             return (
@@ -523,16 +556,20 @@ export function BreathingGame({ lang }: BreathingGameProps) {
                 key={g.id}
                 type="button"
                 onClick={() => handleSelectGame(g.id)}
-                className={`flex flex-col justify-between rounded-2xl p-3.5 text-left transition ${
+                className={`flex flex-col justify-between rounded-2xl border p-3.5 text-left transition ${
                   isSelected
-                    ? "bg-blue-50/70 ring-2 ring-blue-500/40"
-                    : "bg-[#F8FAFC] hover:bg-slate-100/80"
+                    ? "border-sky-500/60 bg-sky-50/75 shadow-xs ring-2 ring-sky-500/20"
+                    : "border-slate-200/85 bg-[#F8FAFC] hover:border-slate-300 hover:bg-slate-100/80"
                 }`}
               >
                 <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-2xl">{g.emoji}</span>
-                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-extrabold text-sky-900">
+                  <div className="mb-2.5 flex items-center justify-between gap-2">
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${g.colorClass}`}
+                    >
+                      {renderGameIcon(g.id)}
+                    </div>
+                    <span className="rounded-xl bg-white px-2.5 py-1 text-[10px] font-extrabold text-slate-700 shadow-2xs ring-1 ring-slate-200/80">
                       {lang === "kk" ? g.badge_kk : g.badge_ru}
                     </span>
                   </div>
@@ -547,16 +584,27 @@ export function BreathingGame({ lang }: BreathingGameProps) {
       </section>
 
       {/* Active Game Arena */}
-      <section className="surface-card p-6">
+      <section className="surface-card rounded-2xl border border-slate-200/90 p-6 shadow-sm">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="flex items-center gap-2 text-2xl font-extrabold text-slate-900">
-              <span>{currentMeta.emoji}</span>
-              {lang === "kk" ? currentMeta.title_kk : currentMeta.title_ru}
-            </h3>
-            <p className="mt-1 text-sm font-medium text-slate-600">
-              {lang === "kk" ? currentMeta.desc_kk : currentMeta.desc_ru}
-            </p>
+          <div className="flex items-start gap-3.5">
+            <div
+              className={`mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${currentMeta.colorClass}`}
+            >
+              {renderGameIcon(currentMeta.id)}
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-xl font-extrabold text-slate-900 sm:text-2xl">
+                  {lang === "kk" ? currentMeta.title_kk : currentMeta.title_ru}
+                </h3>
+                <span className="rounded-xl bg-slate-100 px-2.5 py-0.5 text-xs font-extrabold text-slate-700">
+                  {lang === "kk" ? currentMeta.badge_kk : currentMeta.badge_ru}
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-medium text-slate-600">
+                {lang === "kk" ? currentMeta.desc_kk : currentMeta.desc_ru}
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-2">
@@ -564,16 +612,16 @@ export function BreathingGame({ lang }: BreathingGameProps) {
               <button
                 type="button"
                 onClick={start}
-                className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-3 text-base font-bold text-white shadow-sm hover:bg-sky-700"
+                className="inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-sky-700"
               >
-                <Play className="h-5 w-5" />
+                <Play className="h-4 w-4" />
                 {lang === "kk" ? "Ойынды бастау" : "Начать игру"}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={stop}
-                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-base font-bold text-white shadow-sm hover:bg-red-700"
+                className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-red-700"
               >
                 <Square className="h-4 w-4 fill-current" />
                 {lang === "kk" ? "Тоқтату" : "Остановить"}
@@ -582,7 +630,7 @@ export function BreathingGame({ lang }: BreathingGameProps) {
             <button
               type="button"
               onClick={resetCurrentGame}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-extrabold text-slate-700 shadow-2xs transition hover:bg-slate-50"
             >
               <RotateCcw className="h-4 w-4" />
               {lang === "kk" ? "Қайта бастау" : "Сначала"}

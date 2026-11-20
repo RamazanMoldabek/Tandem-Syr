@@ -758,15 +758,11 @@ export function SpeechTrainer({
                   </p>
                 )}
 
-                <p className="mt-1 text-xs text-slate-500">
-                  Whisper: <strong>{result.whisper_heard || result.target_word}</strong> •{" "}
-                  <code>score: {result.score ?? result.final_score}</code>
-                  {autoSavedNotice && (
-                    <span className="ml-2 font-bold text-emerald-700">
-                      • ✓ {UI_TEXT.trainer.autoSaved[lang]}
-                    </span>
-                  )}
-                </p>
+                {autoSavedNotice && (
+                  <p className="mt-1 text-xs font-bold text-emerald-700">
+                    ✓ {UI_TEXT.trainer.autoSaved[lang]}
+                  </p>
+                )}
               </div>
             </div>
 
