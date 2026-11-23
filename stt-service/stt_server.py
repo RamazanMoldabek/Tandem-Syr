@@ -86,8 +86,11 @@ try:
 except Exception:
     HAS_HTTPX = False
 
+from fastapi.middleware.gzip import GZipMiddleware
+
 app = FastAPI(title="Tandem-Syr STT & Adaptive Learning Service")
 
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -644,10 +647,21 @@ async def evaluate_pronunciation(
             passed = False
             reason = "wrong_word"
         else:
-            ctc_ok = (ctc_margin > 0.0008) or (target_ctc_prob > distractor_ctc_prob * 1.15)
-            diff_ok = (diff > 0.01) if used_live_refs else (diff > -0.015)
+            has_exact_ref = (
+                target_norm_key := t_word.strip().lower()
+            ) in reference_db.get("live_embeddings", {}) or target_norm_key in reference_db.get("embeddings", {})
 
-            if ctc_ok and diff_ok:
+            ctc_ok = (ctc_margin > 0.0005) or (target_ctc_prob >= distractor_ctc_prob * 1.08)
+            diff_ok = (
+                (diff > 0.0)
+                if used_live_refs
+                else (diff > -0.02 if has_exact_ref else diff > -0.08)
+            )
+            # Если Whisper уверенно распознал именно целевое слово (не дистрактор), а CTC не отдал перевес дистрактору — засчитываем
+            lexical_clear = (sim_target >= 0.78) and (sim_target > sim_distractor + 0.08)
+            ctc_not_distractor = distractor_ctc_prob <= target_ctc_prob * 1.15
+
+            if (ctc_ok and diff_ok) or (lexical_clear and ctc_not_distractor and diff_ok):
                 passed = True
                 reason = "ok"
             else:
