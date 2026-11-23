@@ -165,7 +165,7 @@ function analyzeVoiceVsBreath(buf: Float32Array, sampleRate: number): {
   const rms = Math.sqrt(energy / n);
   const zcr = zeroCrossings / n;
 
-  if (rms < 0.015) {
+  if (rms < 0.008) {
     return { rms, pitchClarity: 0, zcr };
   }
 
@@ -336,12 +336,17 @@ export function BreathingGame({ lang }: BreathingGameProps) {
       highpass.type = "highpass";
       highpass.frequency.value = 85;
 
+      // Программный предусилитель микрофона (2.8x / ~+9 dB), чтобы уверенно ловить тихий голос и выдох на ноутбуке и телефоне
+      const micPreamp = ctx.createGain();
+      micPreamp.gain.value = 2.8;
+
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 1024;
       analyser.smoothingTimeConstant = 0.5;
 
       source.connect(highpass);
-      highpass.connect(analyser);
+      highpass.connect(micPreamp);
+      micPreamp.connect(analyser);
 
       const timeBuffer = new Float32Array(analyser.fftSize);
       lastFrameRef.current = performance.now();
@@ -378,10 +383,10 @@ export function BreathingGame({ lang }: BreathingGameProps) {
 
         if (gId === "sailboat") {
           // Парусник: нужен ТОЛЬКО чистый выдох (апериодический шум воздуха: clarity < 0.48)
-          if (currentRms < 0.022) {
+          if (currentRms < 0.015) {
             setZone("quiet");
             setWrongSoundHint(null);
-          } else if (currentRms > 0.24) {
+          } else if (currentRms > 0.42) {
             setZone("loud");
             setWrongSoundHint(null);
           } else if (clarity >= 0.52) {
@@ -399,14 +404,14 @@ export function BreathingGame({ lang }: BreathingGameProps) {
             setProgress((p) => Math.min(100, p + dt * 13));
           }
         } else if (gId === "bee") {
-          // Пчёлка: нужен ТОЛЬКО периодический голос (Ң-ң-ң / Ө-ө-ө / Ү-ү-ү: clarity >= 0.50)
-          if (currentRms < 0.024) {
+          // Пчёлка: нужен ТОЛЬКО периодический голос (Ң-ң-ң / Ө-ө-ө / Ү-ү-ү: clarity >= 0.46)
+          if (currentRms < 0.016) {
             setZone("quiet");
             setWrongSoundHint(null);
-          } else if (currentRms > 0.3) {
+          } else if (currentRms > 0.46) {
             setZone("loud");
             setWrongSoundHint(null);
-          } else if (clarity < 0.48) {
+          } else if (clarity < 0.45) {
             // Это просто дутьё воздухом или шум
             setZone("wrong_sound");
             setWrongSoundHint(
@@ -421,21 +426,21 @@ export function BreathingGame({ lang }: BreathingGameProps) {
             setProgress((p) => Math.min(100, p + dt * 14));
           }
         } else if (gId === "motor") {
-          // Моторчик: нужен голос (clarity >= 0.44) + вибрация/рычание (modRatio >= 0.08 или ZCR >= 0.045)
-          if (currentRms < 0.028) {
+          // Моторчик: нужен голос (clarity >= 0.40) + вибрация/рычание (modRatio >= 0.055 или ZCR >= 0.035)
+          if (currentRms < 0.018) {
             setZone("quiet");
             setWrongSoundHint(null);
-          } else if (currentRms > 0.36) {
+          } else if (currentRms > 0.5) {
             setZone("loud");
             setWrongSoundHint(null);
-          } else if (clarity < 0.42) {
+          } else if (clarity < 0.4) {
             setZone("wrong_sound");
             setWrongSoundHint(
               curLang === "kk"
                 ? "Жай үрлегенге мотор оталмайды! Дауыспен «Д-р-р-р!» деп гүрілде!"
                 : "От простого дутья мотор не заведётся! Рычи голосом: «Д-р-р-р!»"
             );
-          } else if (modRatio < 0.065 && zcr < 0.04) {
+          } else if (modRatio < 0.055 && zcr < 0.035) {
             setZone("wrong_sound");
             setWrongSoundHint(
               curLang === "kk"
@@ -450,14 +455,14 @@ export function BreathingGame({ lang }: BreathingGameProps) {
           }
         } else if (gId === "dandelion") {
           // Одуванчик: короткий слог с голосом («Қа! Қо! Ақ!»), простое дутьё отсекается по clarity
-          if (currentRms < 0.025) {
+          if (currentRms < 0.016) {
             armedForPulseRef.current = true;
             voicedFramesInBurstRef.current = 0;
             setZone("quiet");
-          } else if (currentRms >= 0.05) {
-            if (clarity >= 0.48) {
+          } else if (currentRms >= 0.032) {
+            if (clarity >= 0.45) {
               voicedFramesInBurstRef.current += 1;
-            } else if (currentRms >= 0.065 && voicedFramesInBurstRef.current === 0) {
+            } else if (currentRms >= 0.05 && voicedFramesInBurstRef.current === 0) {
               setZone("wrong_sound");
               setWrongSoundHint(
                 curLang === "kk"
@@ -479,15 +484,15 @@ export function BreathingGame({ lang }: BreathingGameProps) {
             }
           }
         } else if (gId === "drums") {
-          // Ритм-барабан: каждый слог должен быть произнесён голосом (clarity >= 0.48)
-          if (currentRms < 0.025) {
+          // Ритм-барабан: каждый слог должен быть произнесён голосом (clarity >= 0.45)
+          if (currentRms < 0.016) {
             armedForPulseRef.current = true;
             voicedFramesInBurstRef.current = 0;
             setZone("quiet");
-          } else if (currentRms >= 0.048) {
-            if (clarity >= 0.48) {
+          } else if (currentRms >= 0.03) {
+            if (clarity >= 0.45) {
               voicedFramesInBurstRef.current += 1;
-            } else if (currentRms >= 0.065 && voicedFramesInBurstRef.current === 0) {
+            } else if (currentRms >= 0.05 && voicedFramesInBurstRef.current === 0) {
               setZone("wrong_sound");
               setWrongSoundHint(
                 curLang === "kk"
