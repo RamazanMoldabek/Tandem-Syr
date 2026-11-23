@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowRight,
@@ -60,7 +60,7 @@ const WORD_ILLUSTRATIONS: Record<string, string> = {
   қас: "👁️",
   ақ: "☁️",
   ағаш: "🌳",
-  тауық: "🐓",
+  ғалым: "🎓",
   баға: "🏅",
   сағат: "⌚",
   аға: "👦",
@@ -175,6 +175,20 @@ export function SpeechTrainer({
   const [earnedStars, setEarnedStars] = useState<0 | 1 | 2 | 3>(0);
   const [apiError, setApiError] = useState<string | null>(null);
   const [autoSavedNotice, setAutoSavedNotice] = useState(false);
+  const [autoAdvancing, setAutoAdvancing] = useState(false);
+  const autoAdvanceTimerRef = useRef<number | null>(null);
+
+  const clearAutoAdvance = useCallback(() => {
+    if (autoAdvanceTimerRef.current !== null) {
+      window.clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
+    setAutoAdvancing(false);
+  }, []);
+
+  useEffect(() => {
+    return () => clearAutoAdvance();
+  }, [clearAutoAdvance]);
 
   const loadLessons = useCallback(async () => {
     setLoadingLessons(true);
@@ -252,22 +266,34 @@ export function SpeechTrainer({
     ? starsMap[selectedPair.id] || 0
     : starsMap[selectedItem.id] || 0;
 
-  const handleStepWord = (dir: -1 | 1) => {
-    if (minimalPairsMode) {
-      const idx = activePairs.findIndex((p) => p.id === selectedPair.id);
-      const nextIdx = (idx + dir + activePairs.length) % activePairs.length;
-      setSelectedPair(activePairs[nextIdx]);
-      setPairStep("target");
-    } else {
-      const nextIdx = (currentItemIndex + dir + currentLevelItems.length) % currentLevelItems.length;
-      setSelectedItem(currentLevelItems[nextIdx]);
-    }
-    setResult(null);
-    setApiError(null);
-  };
+  const handleStepWord = useCallback(
+    (dir: -1 | 1) => {
+      clearAutoAdvance();
+      if (minimalPairsMode) {
+        const idx = activePairs.findIndex((p) => p.id === selectedPair.id);
+        const nextIdx = (idx + dir + activePairs.length) % activePairs.length;
+        setSelectedPair(activePairs[nextIdx]);
+        setPairStep("target");
+      } else {
+        const nextIdx = (currentItemIndex + dir + currentLevelItems.length) % currentLevelItems.length;
+        setSelectedItem(currentLevelItems[nextIdx]);
+      }
+      setResult(null);
+      setApiError(null);
+    },
+    [
+      activePairs,
+      clearAutoAdvance,
+      currentItemIndex,
+      currentLevelItems,
+      minimalPairsMode,
+      selectedPair.id,
+    ]
+  );
 
   const handleRecorded = useCallback(
     async (blob: Blob) => {
+      clearAutoAdvance();
       setEvaluating(true);
       setApiError(null);
       setAutoSavedNotice(false);
@@ -318,6 +344,20 @@ export function SpeechTrainer({
             // Non-blocking
           }
         }
+
+        // Автоматический переход к следующему слову при получении >= 2 звёзд
+        if (stars >= 2) {
+          setAutoAdvancing(true);
+          autoAdvanceTimerRef.current = window.setTimeout(() => {
+            if (minimalPairsMode && pairStep === "target") {
+              setPairStep("distractor");
+              setResult(null);
+              setAutoAdvancing(false);
+            } else {
+              handleStepWord(1);
+            }
+          }, 1200);
+        }
       } catch (err) {
         setApiError(err instanceof Error ? err.message : "Evaluation failed");
       } finally {
@@ -327,9 +367,12 @@ export function SpeechTrainer({
     [
       activeDistractorWord,
       activeWord,
+      clearAutoAdvance,
+      handleStepWord,
       level,
       loadLessons,
       minimalPairsMode,
+      pairStep,
       saveStarForItem,
       selectedItem.id,
       selectedPair.id,
@@ -761,6 +804,11 @@ export function SpeechTrainer({
                 {autoSavedNotice && (
                   <p className="mt-1 text-xs font-bold text-emerald-700">
                     ✓ {UI_TEXT.trainer.autoSaved[lang]}
+                  </p>
+                )}
+                {autoAdvancing && (
+                  <p className="mt-1 text-xs font-extrabold text-sky-700">
+                    → {lang === "kk" ? "Келесі сөзге өтуде..." : "Переходим к следующему слову..."}
                   </p>
                 )}
               </div>

@@ -85,13 +85,13 @@ export const PHONEME_CURRICULUM: Record<TargetPhoneme, PhonemeCurriculum> = {
       ],
       2: [
         { id: "gh-2-1", text: "ағаш", phoneme: "ғ", level: 2, hint_kk: "Жасыл ағаш", hint_ru: "Дерево", distractor_word: "агаш" },
-        { id: "gh-2-2", text: "тауық", phoneme: "ғ", level: 2, hint_kk: "Үй құсы", hint_ru: "Курица", distractor_word: "тауык" },
+        { id: "gh-2-2", text: "ғалым", phoneme: "ғ", level: 2, hint_kk: "Білгір ғалым", hint_ru: "Учёный", distractor_word: "галым" },
         { id: "gh-2-3", text: "баға", phoneme: "ғ", level: 2, hint_kk: "Жақсы баға", hint_ru: "Оценка / цена", distractor_word: "бага" },
         { id: "gh-2-4", text: "сағат", phoneme: "ғ", level: 2, hint_kk: "Қол сағат", hint_ru: "Часы", distractor_word: "сагат" },
       ],
       3: [
         { id: "gh-3-1", text: "Ға-ға-ға — биік тауға", phoneme: "ғ", level: 3, hint_kk: "Жаңылтпаш", hint_ru: "Чистоговорка" },
-        { id: "gh-3-2", text: "Ағ-ағ-ағ — жасыл бау-бақ", phoneme: "ғ", level: 3, hint_kk: "Жаңылтпаш", hint_ru: "Чистоговорка" },
+        { id: "gh-3-2", text: "Ағ-ағ-ағ — алтын таға", phoneme: "ғ", level: 3, hint_kk: "Жаңылтпаш", hint_ru: "Чистоговорка" },
         { id: "gh-3-3", text: "Ғы-ғы-ғы — білім бұлағы", phoneme: "ғ", level: 3, hint_kk: "Сөз тіркесі", hint_ru: "Чистоговорка" },
         { id: "gh-3-4", text: "Ға-ға-ға — алтын сағат", phoneme: "ғ", level: 3, hint_kk: "Сөз тіркесі", hint_ru: "Чистоговорка" },
       ],
